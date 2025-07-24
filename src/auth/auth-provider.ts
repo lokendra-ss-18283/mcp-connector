@@ -21,6 +21,7 @@ import { OAuthClientInformation } from "@modelcontextprotocol/sdk/shared/auth.js
 import { OAuthTokens } from "@modelcontextprotocol/sdk/shared/auth.js";
 import { MCPServerConfig, TokenSchema } from "../types/index.js";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
+import { GLOBAL_SERVER_CONFIGS } from "../cli.js";
 
 export interface OAuthState {
   timestamp: number;
@@ -327,7 +328,13 @@ export class DefaultAuthProvider implements OAuthClientProvider {
 
       DefaultAuthProvider.oauthProxy.on("oauth-success", async ({ url }) => {
         this.logger.info("OAuth successful, restarting MCP server...");
-        await proxyConfig(url);
+        const serverConfig: MCPServerConfig | undefined = GLOBAL_SERVER_CONFIGS.get(TokenManager.hashUrl(url));
+        if(serverConfig) {
+          await proxyConfig(serverConfig);
+        } else {
+          this.logger.error("Couldn't find proxy server config. Exiting application. Please ensure your configuration file is present and valid.");
+          process.exit(1);
+        }
       });
 
       await DefaultAuthProvider.oauthProxy.ensureServerRunning(this.logger);
