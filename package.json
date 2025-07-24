@@ -17,7 +17,8 @@
   "license": "MIT",
   "scripts": {
     "start": "node dist/cli.js",
-    "build": "eslint . && tsc",
+    "build": "tsc",
+    "build:local": "eslint . && tsc",
     "build:watch": "tsc --watch"
   },
   "dependencies": {
