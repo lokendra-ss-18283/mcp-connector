@@ -37,6 +37,9 @@ pids/
 *.seed
 *.pid.lock
 
+# locak file
+*-lock.json
+
 # Coverage directory used by tools like istanbul
 coverage/
 
