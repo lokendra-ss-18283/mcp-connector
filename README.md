@@ -98,12 +98,12 @@ npx mcp-connect --inline-config mcp-connect-server http://localhost:3000
 ### Using a Config File
 
 Example `my-config.json`:
-```json
+```bash
 {
   "server-name": { 
-    "name": "local", // If not provided, the object key will be used as the server name
+    "name": "local", # If not provided, the object key will be used as the server name
     "url": "http://localhost:3000",
-    "port": 8080 // OAuth callback port (optional)
+    "port": 8080 # OAuth callback port (optional)
   }
 }
 ```
