@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authentication Successful</title>
+  <link rel="stylesheet" href="/styles/oauth.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      min-height: 100vh;
+      margin: 0;
+      font-family: 'Poppins', Arial, sans-serif;
+      background: #f0fff6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container.success {
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 4px 24px rgba(76,175,80,0.10);
+      padding: 2.7rem 2.2rem 2.2rem 2.2rem;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      animation: fadeIn 0.7s cubic-bezier(.39,.575,.565,1);
+      border: 1.5px solid #c2ffd6;
+      position: relative;
+    }
+    .container.success::before {
+      content: "";
+      position: absolute;
+      top: -40px;
+      left: -40px;
+      width: 90px;
+      height: 90px;
+      background: radial-gradient(circle, #4caf50 0%, #e0ffe0 100%);
+      opacity: 0.13;
+      border-radius: 50%;
+      z-index: 0;
+    }
+    .container.success::after {
+      content: "";
+      position: absolute;
+      bottom: -30px;
+      right: -30px;
+      width: 60px;
+      height: 60px;
+      background: radial-gradient(circle, #388e3c 0%, #e8f5e9 100%);
+      opacity: 0.12;
+      border-radius: 50%;
+      z-index: 0;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .logo {
+      margin-bottom: 0.7rem;
+      color: #388e3c;
+      font-size: 3.2rem;
+    }
+    h1 {
+      color: #388e3c;
+      font-size: 1.45rem;
+      margin-bottom: 1.1rem;
+      font-family: 'Poppins', Arial, sans-serif;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+    p {
+      color: #444;
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+      font-family: 'Poppins', Arial, sans-serif;
+      font-weight: 400;
+    }
+    .container.success p:last-child {
+      color: #388e3c;
+      font-size: 0.98rem;
+      margin-top: 1.3rem;
+      font-weight: 500;
+    }
+    .server-info {
+      margin: 1.2rem 0 1.2rem 0;
+      text-align: left;
+      background: #f6fff9;
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+      box-shadow: 0 2px 8px rgba(76,175,80,0.07);
+      display: inline-block;
+    }
+    .info-item {
+      margin-bottom: 0.7rem;
+      font-size: 1rem;
+      color: #222;
+    }
+    .status-connected {
+      color: #388e3c;
+      font-weight: 600;
+    }
+    .auto-close {
+      margin-top: 1.2rem;
+      color: #388e3c;
+      font-size: 0.98rem;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div class="container success">
+    <div class="logo">✅</div>
+    <h1>Authentication Successful!</h1>
+    <p>You have been successfully authenticated with the MCP server.</p>
+    
+    <div class="server-info">
+      <div class="info-item">
+        <strong>Server:</strong> {{baseUrl}}
+      </div>
+      <div class="info-item">
+        <strong>Status:</strong> <span class="status-connected">Connected{{AlreadyAuthenticated}}</span>
+      </div>
+      <div class="info-item">
+        <strong>Protocol:</strong> OAuth 2.1 with PKCE
+      </div>
+    </div>
+    
+    <p>You can now close this window and return to your terminal.</p>
+  </div>
+
+</body>
+</html>

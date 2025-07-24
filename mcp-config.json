@@ -1,0 +1,13 @@
+{
+  "servers": [],
+  "auth": {
+    "port": 3001,
+    "secretKey": "your-secret-key-here",
+    "required": false
+  },
+  "client": {
+    "maxRetries": 3,
+    "retryDelay": 5000,
+    "streamingEnabled": true
+  }
+}
