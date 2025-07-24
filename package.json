@@ -1,6 +1,6 @@
 {
   "name": "mcp-connect",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MCP Remote Proxy Server for Streamable HTTP with OAuth Support.",
   "type": "module",
   "bin": {
