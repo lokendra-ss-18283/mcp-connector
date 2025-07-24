@@ -55,7 +55,7 @@ async function loadConfig(serverUrls: MCPServerConfig[]): Promise<CLIConfig> {
 async function main(): Promise<void> {
   MCP_CONNECT_VERSION = await getMCPConnectVersion();
   HEADERS = {
-    "user-agent": `mcp-connect/${MCP_CONNECT_VERSION}`,
+    "user-agent": `mcp-connector/${MCP_CONNECT_VERSION}`,
   }
 
   onProcessStart();

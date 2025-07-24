@@ -86,7 +86,7 @@ export async function getMCPConnectVersion() {
 
 export const printHelperText = (logger: FileLogger): void => {
   console.info(`
-Usage: npx mcp-connect [urls...] [options]
+Usage: npx mcp-connector [urls...] [options]
 
 Arguments:
   urls                One or more MCP server URLs
@@ -97,18 +97,18 @@ Options:
   --url-map          List all url hash map to access logs and tokens
   --list-tokens      List all saved authentication tokens
   --clean-tokens     Remove expired authentication tokens
-  --clean-all        Remove all files in ~/.mcp-connect folder
+  --clean-all        Remove all files in ~/.mcp-connector folder
   --help             Show this help message
 
 Examples:
-  npx mcp-connect http://localhost:3000
-  npx mcp-connect --url-map
-  npx mcp-connect --list-tokens
-  npx mcp-connect --clean-tokens
+  npx mcp-connector http://localhost:3000
+  npx mcp-connector --url-map
+  npx mcp-connector --list-tokens
+  npx mcp-connector --clean-tokens
 
 Token Storage:
-  Tokens are stored in ~/.mcp-connect/ directory
-  Logs can be accessed in ~/.mcp-connect/logs directory
+  Tokens are stored in ~/.mcp-connector/ directory
+  Logs can be accessed in ~/.mcp-connector/logs directory
   Each token file is named with the SHA256 hash of the URL and stored in url-hash-map.json
   `);
 };
@@ -161,12 +161,12 @@ export const clearAllData = (
         recursive: true,
         force: true,
       });
-      console.log("🗑️ Removed all files and folders in ~/.mcp-connect");
+      console.log("🗑️ Removed all files and folders in ~/.mcp-connector");
     } catch (error) {
-      console.log("Failed to remove ~/.mcp-connect:", error);
+      console.log("Failed to remove ~/.mcp-connector:", error);
     }
   } else {
-    console.log("No ~/.mcp-connect folder found to remove.");
+    console.log("No ~/.mcp-connector folder found to remove.");
   }
 };
 

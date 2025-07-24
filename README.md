@@ -9,7 +9,7 @@
 - 🔒 OAuth2 PKCE authentication flow
 - 🔗 Streamable HTTP proxy for MCP clients
 - 🛠️ CLI for managing tokens, logs, and server connections
-- 📦 Token storage and management in `~/.mcp-connect`
+- 📦 Token storage and management in `~/.mcp-connector`
 - 📝 Easy integration with the MCP SDK
 - 🖥️ Native OS dialogs for authentication (macOS, Windows, Linux)
 - 📋 Automatic browser launch or copy OAuth URL to clipboard
@@ -21,13 +21,13 @@
 ## Installation
 
 ```bash
-npm install -g mcp-connect
+npm install -g mcp-connector
 ```
 
 Or use with `npx`:
 
 ```bash
-npx mcp-connect [options]
+npx mcp-connector [options]
 ```
 
 ---
@@ -35,7 +35,7 @@ npx mcp-connect [options]
 ## Usage
 
 ```bash
-mcp-connect [options]
+mcp-connector [options]
 ```
 
 ### Options
@@ -48,7 +48,7 @@ mcp-connect [options]
 | `--url-map`           | List all URL hash mappings to access logs and tokens     |
 | `--list-tokens`       | List all saved authentication tokens                     |
 | `--clean-tokens`      | Remove expired authentication tokens                     |
-| `--clean-all`         | Remove all files in the `~/.mcp-connect` folder          |
+| `--clean-all`         | Remove all files in the `~/.mcp-connector` folder          |
 | `--help` or `-h`      | Show this help message                                   |
 | `--debug` or `-d`     | Enable debug mode                                        |
 
@@ -56,32 +56,32 @@ mcp-connect [options]
 
 ```bash
 # CLI usage documentation
-npx mcp-connect --help
-npx mcp-connect -h
+npx mcp-connector --help
+npx mcp-connector -h
 
 # Connect to a single MCP server
-npx mcp-connect --inline-config mcp-connect-server http://localhost:3000
+npx mcp-connector --inline-config mcp-connector-server http://localhost:3000
 
 # Connect using a config file
-npx mcp-connect --config ./my-config.json --server-name mcp-connect-server
+npx mcp-connector --config ./my-config.json --server-name mcp-connector-server
 
 # Connect to a server with headers
-npx mcp-connect --inline-config mcp-connect-server http://localhost:3000 --headers '{"header1":"value1","header2":"value2"}'
+npx mcp-connector --inline-config mcp-connector-server http://localhost:3000 --headers '{"header1":"value1","header2":"value2"}'
 
 # List all URL hash mappings
-npx mcp-connect --url-map
+npx mcp-connector --url-map
 
 # List all stored tokens
-npx mcp-connect --list-tokens
+npx mcp-connector --list-tokens
 
 # Clean expired tokens
-npx mcp-connect --clean-tokens
+npx mcp-connector --clean-tokens
 
 # Remove all MCP Connect data
-npx mcp-connect --clean-all
+npx mcp-connector --clean-all
 
 # Enable debug mode
-npx mcp-connect --debug [--options]
+npx mcp-connector --debug [--options]
 ```
 
 ---
@@ -92,7 +92,7 @@ npx mcp-connect --debug [--options]
 
 You can specify servers directly:
 ```bash
-npx mcp-connect --inline-config mcp-connect-server http://localhost:3000
+npx mcp-connector --inline-config mcp-connector-server http://localhost:3000
 ```
 
 ### Using a Config File
@@ -112,7 +112,7 @@ Example `my-config.json`:
 
 ## Token & Log Storage
 
-- Tokens and logs are stored in `~/.mcp-connect/{server_hash}/`
+- Tokens and logs are stored in `~/.mcp-connector/{server_hash}/`
 - Each token file is named with the SHA256 hash of the URL and mapped in `url-hash-map.json`
 
 ---
@@ -123,7 +123,7 @@ Example `my-config.json`:
   - Show a native OS dialog (macOS, Windows, Linux) to guide you through OAuth.
   - Open the browser automatically or copy the OAuth URL to your clipboard.
   - Wait for authentication to complete (timeout: 5 minutes).
-  - Store tokens securely in `~/.mcp-connect/{server_hash}/`.
+  - Store tokens securely in `~/.mcp-connector/{server_hash}/`.
 
 ---
 

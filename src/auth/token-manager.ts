@@ -21,13 +21,13 @@ export class TokenManager {
   private url: string | null = null;
 
   constructor(logger: FileLogger, url?: string) {
-    this.mcpConnectRootPath = join(homedir(), ".mcp-connect");
-    this.tokenStorePath = join(homedir(), ".mcp-connect");
+    this.mcpConnectRootPath = join(homedir(), ".mcp-connector");
+    this.tokenStorePath = join(homedir(), ".mcp-connector");
     if (url) {
       this.url = url;
       this.tokenStorePath = join(
         homedir(),
-        ".mcp-connect",
+        ".mcp-connector",
         TokenManager.hashUrl(url)
       );
     }

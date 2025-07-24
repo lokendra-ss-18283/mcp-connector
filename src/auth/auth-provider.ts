@@ -108,7 +108,7 @@ export class DefaultAuthProvider implements OAuthClientProvider {
     instance.redirectUrl = `http://localhost:${usablePort}/callback`;
     instance.clientMetadata = {
       client_name: "MCP Connect",
-      client_uri: "https://github.com/yourusername/mcp-connect",
+      client_uri: "https://github.com/lokendra-ss-18283/mcp-connector",
       redirect_uris: [instance.redirectUrl],
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
@@ -309,7 +309,7 @@ export class DefaultAuthProvider implements OAuthClientProvider {
 
   private getClientInfoFilePath(): string {
     const urlHash = TokenManager.hashUrl(this.baseUrl.toString());
-    // Stores in ~/.mcp-connect/client_info_{hash}.json
+    // Stores in ~/.mcp-connector/client_info_{hash}.json
     return join(
       this.tokenManager.getStorePath(),
       `client_info_${urlHash}.json`

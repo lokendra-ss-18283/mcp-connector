@@ -1,10 +1,10 @@
 {
-  "name": "mcp-connect",
-  "version": "1.0.1",
+  "name": "mcp-connector",
+  "version": "1.0.0",
   "description": "MCP Remote Proxy Server for Streamable HTTP with OAuth Support.",
   "type": "module",
   "bin": {
-    "mcp-connect": "dist/cli.js"
+    "mcp-connector": "dist/cli.js"
   },
   "keywords": [
     "mcp",

@@ -68,7 +68,7 @@ export function McpProxyConfig({
     if (message.method === "initialize" && message.params) {
       const initMsg = message as unknown as InitializeRequest;
       const { clientInfo } = initMsg.params;
-      if (clientInfo) clientInfo.name = `${clientInfo.name} (via mcp-connect)`;
+      if (clientInfo) clientInfo.name = `${clientInfo.name} (via mcp-connector)`;
       logger.info(
         `[Client → Server] Initialization: ${JSON.stringify(message, null, 2)}`
       );

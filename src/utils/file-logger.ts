@@ -9,10 +9,10 @@ export class FileLogger {
 
   constructor(serverName: string, urlHash: string) {
     if(serverName === "default") {
-      this.logPath = join(homedir(), ".mcp-connect");
-      this.logFile = join(this.logPath, `mcp-client-${new Date().toISOString().split('T')[0]}.log`);
+      this.logPath = join(homedir(), ".mcp-connector");
+      this.logFile = join(this.logPath, `mcp-connector-${new Date().toISOString().split('T')[0]}.log`);
     } else {
-      this.logPath = join(homedir(), ".mcp-connect", urlHash);
+      this.logPath = join(homedir(), ".mcp-connector", urlHash);
       this.logFile = join(this.logPath, `${serverName}.log`);
     }
     this.ensureLogDirectoryExists();
