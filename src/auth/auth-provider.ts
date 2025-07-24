@@ -107,7 +107,7 @@ export class DefaultAuthProvider implements OAuthClientProvider {
     instance.port = usablePort;
     instance.redirectUrl = `http://localhost:${usablePort}/callback`;
     instance.clientMetadata = {
-      client_name: "MCP Connect",
+      client_name: "MCP Connector",
       client_uri: "https://github.com/lokendra-ss-18283/mcp-connector",
       redirect_uris: [instance.redirectUrl],
       grant_types: ["authorization_code", "refresh_token"],

@@ -1,6 +1,6 @@
-# MCP Connect
+# MCP Connector
 
-**MCP Connect** is a CLI tool and proxy server for the [Model Context Protocol](https://github.com/modelcontextprotocol) (MCP), providing secure, streamable HTTP transport with OAuth authentication support.
+**MCP Connector** is a CLI tool and proxy server for the [Model Context Protocol](https://github.com/modelcontextprotocol) (MCP), providing secure, streamable HTTP transport with OAuth authentication support.
 
 ---
 
@@ -77,7 +77,7 @@ npx mcp-connector --list-tokens
 # Clean expired tokens
 npx mcp-connector --clean-tokens
 
-# Remove all MCP Connect data
+# Remove all MCP Connector data
 npx mcp-connector --clean-all
 
 # Enable debug mode
@@ -119,7 +119,7 @@ Example `my-config.json`:
 
 ## Authentication Flow
 
-- When authentication is required, MCP Connect will:
+- When authentication is required, MCP Connector will:
   - Show a native OS dialog (macOS, Windows, Linux) to guide you through OAuth.
   - Open the browser automatically or copy the OAuth URL to your clipboard.
   - Wait for authentication to complete (timeout: 5 minutes).
@@ -129,7 +129,7 @@ Example `my-config.json`:
 
 ## Cleanup Logic
 
-On process exit (`SIGINT`, `SIGTERM`), MCP Connect will:
+On process exit (`SIGINT`, `SIGTERM`), MCP Connector will:
 - 🛑 Close all proxy transports.
 - 🧹 Clean up pending initialization errors.
 - 🗑️ Clear global state stores.

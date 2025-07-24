@@ -54,11 +54,11 @@ export class TokenManager {
       if (!existsSync(this.mcpConnectRootPath)) {
         mkdirSync(this.mcpConnectRootPath, { recursive: true });
         this.logger.debug(
-          `Created mcp connect directory: ${this.mcpConnectRootPath}`
+          `Created mcp connector directory: ${this.mcpConnectRootPath}`
         );
       }
     } catch (error) {
-      this.logger.warn("Failed to create mcp connect root directory:", error);
+      this.logger.warn("Failed to create mcp connector root directory:", error);
     }
   }
 

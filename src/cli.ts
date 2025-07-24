@@ -123,7 +123,7 @@ async function main(): Promise<void> {
   }
 
   try {
-    console.info("🚀 Starting MCP Connect...\n");
+    console.info("🚀 Starting MCP Connector...\n");
 
     // Parse server URLs from arguments
     const argStartIndex = hasUrl

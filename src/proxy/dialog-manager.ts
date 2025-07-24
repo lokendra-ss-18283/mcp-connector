@@ -28,7 +28,7 @@ export class OAuthDialogManager {
     let command: string;
     let args: string[];
 
-    const title = "MCP Connect - OAuth Authentication";
+    const title = "MCP Connector - OAuth Authentication";
     // Truncate URL for display if it's too long
     const displayUrl = url.length > 80 ? url.substring(0, 80) + "..." : url;
 
