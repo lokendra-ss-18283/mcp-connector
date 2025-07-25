@@ -36,7 +36,7 @@ export const GLOBAL_SERVER_CONFIGS: Map<string, MCPServerConfig> = new Map<
 >();
 
 export let DEBUG_MODE: boolean = false;
-export let MCP_CONNECT_VERSION : string;
+export let MCP_CONNECT_VERSION: string;
 
 export let HEADERS: Record<string, string> = {};
 
@@ -56,10 +56,15 @@ async function main(): Promise<void> {
   MCP_CONNECT_VERSION = await getMCPConnectVersion();
   HEADERS = {
     "user-agent": `mcp-connector/${MCP_CONNECT_VERSION}`,
-  }
+  };
 
   onProcessStart();
   const args = process.argv.slice(2);
+
+  if (args.includes("--version") || args.includes("-v")) {
+    console.log(`mcp-connector version: ${MCP_CONNECT_VERSION}`);
+    process.exit(0);
+  }
 
   if (args.includes("--help") || args.includes("-h")) {
     printHelperText(logger);
@@ -115,9 +120,9 @@ async function main(): Promise<void> {
 
   const hasHeaders = args.includes("--headers");
   const headersIndex = hasHeaders ? args[args.indexOf("--headers") + 1] : "";
-  if(hasHeaders && headersIndex) {
+  if (hasHeaders && headersIndex) {
     const headers = isValidJson(headersIndex);
-    HEADERS = {...HEADERS, ...headers}
+    HEADERS = { ...HEADERS, ...headers };
     removeArg(args, "--headers");
     removeArg(args, headersIndex);
   }
