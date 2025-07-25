@@ -5,3 +5,5 @@ node_modules/
 *.map
 *.lock.json
 eslint.config.mjs
+tsconfig.json
+package.json

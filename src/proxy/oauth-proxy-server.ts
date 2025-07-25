@@ -6,7 +6,8 @@ import { getAuthAvailablePort, getOAuthState, globalStateStore, globalStateStore
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { EventEmitter } from "events";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-
+import { join, dirname } from "path";
+import { fileURLToPath } from "url"
 interface OAuthProxyOptions {
   port?: number;
   timeout?: number;
@@ -40,7 +41,10 @@ export class OAuthProxyServer extends EventEmitter {
   }
 
   private setupRoutes(): void {
-    this.app.use(express.static("public"));
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    
+    this.app.use(express.static(join(__dirname, "../../public")));
 
     this.app.get("/health", (req, res) => {
       res.json({

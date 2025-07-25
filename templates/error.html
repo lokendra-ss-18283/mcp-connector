@@ -2,98 +2,39 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{title}}</title>
-  <link rel="stylesheet" href="/styles/oauth.css">
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <title>MCP Connector - Authentication Error</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/common.css">
   <style>
-    body {
-      min-height: 100vh;
-      margin: 0;
-      font-family: 'Poppins', Arial, sans-serif;
-      background: #fff6f0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    /* Page-specific styles only */
+    h2 { font-weight: 700; color: #c0392b; }
+    .error-info {
+      background: #fbeaea;
+      color: #c0392b;
     }
-    .container.error {
-      background: #fff;
-      border-radius: 18px;
-      box-shadow: 0 4px 24px rgba(244,67,54,0.10);
-      padding: 2.7rem 2.2rem 2.2rem 2.2rem;
-      max-width: 480px;
-      width: 100%;
-      text-align: center;
-      animation: fadeIn 0.7s cubic-bezier(.39,.575,.565,1);
-      border: 1.5px solid #ffd6c2;
-    }
-    .container.error::before {
-      content: "";
-      position: absolute;
-      top: -40px;
-      left: -40px;
-      width: 90px;
-      height: 90px;
-      background: radial-gradient(circle, #ff9800 0%, #fff3e0 100%);
-      opacity: 0.13;
-      border-radius: 50%;
-      z-index: 0;
-    }
-    .container.error::after {
-      content: "";
-      position: absolute;
-      bottom: -30px;
-      right: -30px;
-      width: 60px;
-      height: 60px;
-      background: radial-gradient(circle, #f44336 0%, #ffebee 100%);
-      opacity: 0.12;
-      border-radius: 50%;
-      z-index: 0;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(30px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .logo {
-      margin-bottom: 0.7rem;
-      color: #d32f2f;
-    }
-    h1 {
-      color: #d32f2f;
-      font-size: 1.45rem;
-      margin-bottom: 1.1rem;
-      font-family: 'Poppins', Arial, sans-serif;
-      font-weight: 600;
-      letter-spacing: 0.2px;
-    }
-    p {
-      color: #444;
-      font-size: 1rem;
-      margin-bottom: 0.5rem;
-      font-family: 'Poppins', Arial, sans-serif;
-      font-weight: 400;
-    }
-    .container.error p:last-child {
-      color: #d32f2f;
-      font-size: 0.98rem;
-      margin-top: 1.3rem;
-      font-weight: 500;
+    .powered-tag {
+      color: #c0392b;
+      box-shadow: 0 2px 12px rgba(192,57,43,0.13);
     }
   </style>
 </head>
 <body>
-  <div class="container error">
-    <div class="logo">
-      <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Error">
-        <circle cx="22" cy="22" r="20" fill="#ffe0e0" stroke="#d32f2f" stroke-width="2"/>
-        <line x1="15" y1="15" x2="29" y2="29" stroke="#d32f2f" stroke-width="3" stroke-linecap="round"/>
-        <line x1="29" y1="15" x2="15" y2="29" stroke="#d32f2f" stroke-width="3" stroke-linecap="round"/>
+  <div class="box">
+    <div class="icon">
+      <svg viewBox="0 0 48 48" fill="none">
+        <circle cx="24" cy="24" r="22" fill="#c0392b" opacity="0.13"/>
+        <path d="M16 16l16 16M32 16L16 32" stroke="#c0392b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </div>
-    <h1>{{title}}</h1>
-    <p>{{message}}</p>
-    <p>Please close this window and try again.</p>
+    <h2><span style="font-weight: 600;">Authentication Error</span></h2>
+    <p>Something went wrong during authentication.<br>Please close this tab and try again.</p>
+    <div class="error-info">
+      <div><span style="font-weight: 550;">Error:</span> {{title}}</div>
+      <div><span style="font-weight: 550;">Description:</span> {{message}}</div>
+    </div>
+    <div class="powered-tag">
+        <p style="margin:0; font-weight: 600;">Powered by mcp-connector</p>
+    </div>
   </div>
 </body>
 </html>
