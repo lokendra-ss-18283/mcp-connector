@@ -1,0 +1,7 @@
+src/
+test/
+node_modules/
+*.ts
+*.map
+*.lock.json
+eslint.config.mjs

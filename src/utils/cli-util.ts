@@ -194,9 +194,24 @@ export const parseServerUrls = (args: string[], logger: FileLogger) => {
     // Only support --inline-config {name} {url} {port(optional)}
     if (args[i] === "--inline-config" && args[i + 1] && args[i + 2]) {
       foundInlineConfig = true;
-      const name = args[i + 1];
+      const nameRaw = args[i + 1];
       const url = args[i + 2];
       let port: number | undefined = undefined;
+
+      let name = nameRaw.replace(/[^a-zA-Z0-9-_ ]/g, "");
+      name = name.replace(/ +/g, "-");
+      
+      if (!name) {
+        console.error("❌ Invalid server name. Please provide a name containing only alphanumeric characters, hyphens, underscores, or spaces.");
+        process.exit(1);
+      }
+
+      try {
+        new URL(url);
+      } catch {
+        console.error(`❌ Invalid URL provided for inline config: "${url}". Please provide a valid http(s) URL.`);
+        process.exit(1);
+      }
 
       // Add port to config if present
       if (args[i + 3] && !isNaN(Number(args[i + 3]))) {

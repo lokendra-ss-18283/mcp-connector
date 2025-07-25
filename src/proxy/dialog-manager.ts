@@ -25,6 +25,7 @@ export class OAuthDialogManager {
   }
 
   private showOSPrompt(url: string): void {
+    this.logger.info(`OAuth authentication URL: ${url}`);
     let command: string;
     let args: string[];
 
