@@ -1,3 +1,4 @@
+import open from "open";
 import { exec } from "child_process";
 import readline from "readline";
 import {
@@ -84,13 +85,14 @@ Choose an option:" with title "${title}" buttons {"Cancel", "Copy URL", "Open Br
         .map((arg) => `'${arg.replace(/'/g, "'\"'\"'")}'`)
         .join(" ")}`,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (error: any, stdout: string) => {
+      async (error: any, stdout: string) => {
         if (error) {
           this.logger.warn(
             "Unable to show OS dialog, falling back to console prompt"
           );
           this.logger.debug("Dialog error:", error.message);
           this.showConsoleFallback(url);
+          await this.performBrowserOpen(url);
           return;
         }
 
@@ -102,7 +104,7 @@ Choose an option:" with title "${title}" buttons {"Cancel", "Copy URL", "Open Br
           choice.toLowerCase().includes("browser") ||
           choice === "yes"
         ) {
-          this.performBrowserOpen(url);
+          await this.performBrowserOpen(url);
         } else if (
           choice.toLowerCase().includes("copy") ||
           choice.toLowerCase().includes("url") ||
@@ -146,14 +148,14 @@ Choose an option:" with title "${title}" buttons {"Cancel", "Copy URL", "Open Br
       output: process.stdout,
     });
 
-    rl.question("Choose an option [O/c/x]: ", (answer: string) => {
+    rl.question("Choose an option [O/c/x]: ", async (answer: string) => {
       const choice = answer.toLowerCase().trim() || "o";
 
       switch (choice) {
         case "o":
         case "open":
         case "browser":
-          this.performBrowserOpen(url);
+          await this.performBrowserOpen(url);
           break;
         case "c":
         case "copy":
@@ -241,29 +243,35 @@ Choose an option:" with title "${title}" buttons {"Cancel", "Copy URL", "Open Br
     this.logger.info("");
   }
 
-  private performBrowserOpen(url: string): void {
+  private async performBrowserOpen(url: string): Promise<void> {
     this.logger.progress("Opening browser...");
 
-    const openCommand =
-      process.platform === "darwin"
-        ? "open"
-        : process.platform === "win32"
-        ? "start"
-        : "xdg-open";
+    try {
+      await open(this.sanitizeUrl(url.toString()));
+      this.logger.info("Browser opened automatically.");
+    } catch (error) {
+      this.logger.error(
+        "Could not open browser automatically. Please copy and paste the URL above into your browser."
+      );
+      this.logger.debug("Failed to open browser", error);
+    }
+  }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    exec(`${openCommand} "${url}"`, (error: any) => {
-      if (error) {
-        this.logger.error("Could not open browser automatically");
-        this.showManualInstructions(url);
-      } else {
-        this.logger.success("Browser opened successfully");
-        this.logger.info(
-          "📝 Complete the authentication in your browser window"
-        );
-        this.logger.info("⏳ Waiting for authentication to complete...");
-        this.logger.info("   (This will timeout in 5 minutes)");
+  // Only localhost is allowed as callback
+  private sanitizeUrl(raw: string): string {
+    try {
+      const url = new URL(raw, "http://localhost");
+      if (
+        url.protocol === "http:" ||
+        url.protocol === "https:" ||
+        url.hostname === "localhost" ||
+        url.hostname === "127.0.0.1"
+      ) {
+        return url.toString();
       }
-    });
+      return "about:blank";
+    } catch {
+      return "about:blank";
+    }
   }
 }

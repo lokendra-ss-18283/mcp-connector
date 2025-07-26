@@ -176,3 +176,8 @@ MIT
 ## Contributing
 
 Pull requests and issues are welcome!
+
+## To Do
+- Add static client metadata support to eliminate the need for dynamic client registration (DCR).
+- Update TypeScript-to-JavaScript conversion to generate minified files instead of plain JavaScript.
+- Track API calls in the log file for each process and remove expired entries.
