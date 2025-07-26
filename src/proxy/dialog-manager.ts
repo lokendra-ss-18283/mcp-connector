@@ -47,7 +47,8 @@ export class OAuthDialogManager {
         timeout: 30,
         // icon: "random.png" 
       },
-      (err, response, metadata) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (err: any, response: string, metadata: any) => {
         if(err) {
           console.error("Error in dialog box");
           this.logger.oauth("Error in dialog box");
