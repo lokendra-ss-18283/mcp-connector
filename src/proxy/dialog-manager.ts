@@ -1,6 +1,7 @@
 import open from "open";
 import { exec } from "child_process";
-import readline from "readline";
+import notifier from "node-notifier";
+
 import {
   createLogger,
   FileLogger,
@@ -27,153 +28,57 @@ export class OAuthDialogManager {
 
   private showOSPrompt(url: string): void {
     this.logger.info(`OAuth authentication URL: ${url}`);
-    let command: string;
-    let args: string[];
 
     const title = "MCP Connector - OAuth Authentication";
     // Truncate URL for display if it's too long
     const displayUrl = url.length > 80 ? url.substring(0, 80) + "..." : url;
+    const message = `OAuth 2.1 Authentication Required\n\nURL: ${displayUrl}\n\nA browser window will open to complete the OAuth flow.\nYou will be redirected to the authorization server to sign in.\n\nChoose an option:`;
 
-    switch (process.platform) {
-      case "darwin": {
-        // macOS
-        const script = `tell application "System Events" to display dialog "OAuth 2.1 Authentication Required
-
-URL: ${displayUrl}
-
-A browser window will open to complete the OAuth flow. You will be redirected to the authorization server to sign in.
-
-Choose an option:" with title "${title}" buttons {"Cancel", "Copy URL", "Open Browser"} default button "Open Browser" with icon note`;
-
-        command = "osascript";
-        args = ["-e", script];
-        break;
-      }
-      case "win32": {
-        // Windows
-        const message = `OAuth 2.1 Authentication Required\\n\\nURL: ${displayUrl}\\n\\nA browser window will open to complete the OAuth flow.\\nYou will be redirected to the authorization server to sign in.\\n\\nChoose an option:`;
-
-        command = "powershell";
-        args = [
-          "-Command",
-          `Add-Type -AssemblyName System.Windows.Forms; $result = [System.Windows.Forms.MessageBox]::Show("${message}", "${title}", [System.Windows.Forms.MessageBoxButtons]::YesNoCancel, [System.Windows.Forms.MessageBoxIcon]::Question); if ($result -eq [System.Windows.Forms.DialogResult]::Yes) { Write-Output "browser" } elseif ($result -eq [System.Windows.Forms.DialogResult]::No) { Write-Output "copy" } else { Write-Output "cancel" }`,
-        ];
-        break;
-      }
-      default: {
-        // Linux and others
-        command = "zenity";
-        args = [
-          "--question",
-          "--title",
-          title,
-          "--text",
-          `OAuth 2.1 Authentication Required\n\nURL: ${displayUrl}\n\nA browser window will open to complete the OAuth flow.\nYou will be redirected to the authorization server to sign in.\n\nClick Yes to open browser automatically\nClick No to copy URL\nClick Cancel to abort`,
-          "--ok-label",
-          "Open Browser",
-          "--cancel-label",
+    notifier.notify(
+      {
+        title:title,
+        message: message,
+        wait: true,
+        actions: [
+          "Close",
           "Copy URL",
-          "--extra-button",
-          "Cancel",
-        ];
-        break;
-      }
-    }
-
-    exec(
-      `${command} ${args
-        .map((arg) => `'${arg.replace(/'/g, "'\"'\"'")}'`)
-        .join(" ")}`,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      async (error: any, stdout: string) => {
-        if (error) {
-          this.logger.warn(
-            "Unable to show OS dialog, falling back to console prompt"
-          );
-          this.logger.debug("Dialog error:", error.message);
-          this.showConsoleFallback(url);
-          await this.performBrowserOpen(url);
-          return;
+          "Open Browser"
+        ],
+        timeout: 30,
+        // icon: "random.png" 
+      },
+      (err, response, metadata) => {
+        if(err) {
+          console.error("Error in dialog box");
+          this.logger.oauth("Error in dialog box");
+          this.logger.debug("Error in dialog box :: ", err);
+          process.exit(1);
         }
 
-        const choice = stdout.trim();
-        this.logger.debug(`Dialog choice: "${choice}"`);
+        if(response === "timeout") {
+          console.log("Dialog timeout exceeded. Terminating the server");
+          this.logger.oauth("Dialog timeout exceeded. Terminating the server");
+          process.exit(1);
+        }
 
-        if (
-          choice.toLowerCase().includes("open") ||
-          choice.toLowerCase().includes("browser") ||
-          choice === "yes"
-        ) {
-          await this.performBrowserOpen(url);
-        } else if (
-          choice.toLowerCase().includes("copy") ||
-          choice.toLowerCase().includes("url") ||
-          choice === "no"
-        ) {
+        if(response === "close") {
+          console.log("OAuth Rejected. Terminating the server");
+          this.logger.oauth("OAuth Rejected. Terminating the server");
+          process.exit(0);
+        }
+
+        if(response === "copy url") {
           this.copyUrlToClipboard(url);
-        } else {
-          this.logger.oauth("Authentication cancelled by user");
+          console.log("OAuth URL copied to clipboard.");
+          this.logger.oauth("OAuth URL copied to clipboard.");
+        }
+        
+        if(response === "open browser") {
+          this.performBrowserOpen(url);
+          this.logger.oauth("Spawning browser.");
         }
       }
     );
-  }
-
-  private showConsoleFallback(url: string): void {
-    this.logger.oauth("OAuth authentication required for MCP server");
-    this.logger.debug(`Session URL: ${url}`);
-    this.logger.info("");
-    this.logger.info(
-      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    );
-    this.logger.oauth("OAuth 2.1 Authentication Required");
-    this.logger.info(
-      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    );
-    this.logger.info("");
-    this.logger.info(`📍 URL to open: ${url}`);
-    this.logger.info("");
-    this.logger.info("A browser window will open to complete the OAuth flow.");
-    this.logger.info(
-      "You will be redirected to the authorization server to sign in."
-    );
-    this.logger.info("");
-    this.logger.info("Options:");
-    this.logger.info("  [O] Open browser automatically (recommended)");
-    this.logger.info("  [C] Copy URL to clipboard");
-    this.logger.info("  [X] Cancel authentication");
-    this.logger.info("");
-
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-
-    rl.question("Choose an option [O/c/x]: ", async (answer: string) => {
-      const choice = answer.toLowerCase().trim() || "o";
-
-      switch (choice) {
-        case "o":
-        case "open":
-        case "browser":
-          await this.performBrowserOpen(url);
-          break;
-        case "c":
-        case "copy":
-        case "url":
-          this.copyUrlToClipboard(url);
-          break;
-        case "x":
-        case "cancel":
-          this.logger.oauth("Authentication cancelled by user");
-          break;
-        default:
-          this.logger.warn("Invalid choice. Defaulting to copy URL mode...");
-          this.copyUrlToClipboard(url);
-          break;
-      }
-
-      rl.close();
-    });
   }
 
   private copyUrlToClipboard(url: string): void {
@@ -199,6 +104,7 @@ Choose an option:" with title "${title}" buttons {"Cancel", "Copy URL", "Open Br
       if (error) {
         this.logger.error("Could not copy to clipboard automatically");
         this.showManualInstructions(url);
+        this.performBrowserOpen(url);
       } else {
         this.logger.success("URL copied to clipboard successfully!");
         this.logger.info("");
