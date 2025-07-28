@@ -1,6 +1,6 @@
 {
   "name": "mcp-connector",
-  "version": "1.0.1-rc.4",
+  "version": "1.0.1-rc.5",
   "description": "MCP Remote Proxy Server for Streamable HTTP with OAuth Support.",
   "type": "module",
   "bin": {
