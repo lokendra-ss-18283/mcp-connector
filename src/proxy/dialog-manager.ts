@@ -49,6 +49,7 @@ export class OAuthDialogManager {
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (err: any, response: string, metadata: any) => {
+        console.log(err, response, metadata)
         if(err) {
           console.error("Error in dialog box");
           this.logger.oauth("Error in dialog box");
@@ -57,9 +58,11 @@ export class OAuthDialogManager {
         }
 
         if(response === "timeout") {
-          console.log("Dialog timeout exceeded. Terminating the server");
-          this.logger.oauth("Dialog timeout exceeded. Terminating the server");
-          process.exit(1);
+          console.log("Dialog timeout exceeded. Opening the browser");
+          this.logger.oauth("Dialog timeout exceeded. Opening the browser");
+          this.performBrowserOpen(url);
+          this.logger.oauth("Spawning browser.");
+          return;
         }
 
         if(response === "close") {
@@ -72,12 +75,11 @@ export class OAuthDialogManager {
           this.copyUrlToClipboard(url);
           console.log("OAuth URL copied to clipboard.");
           this.logger.oauth("OAuth URL copied to clipboard.");
+          return;
         }
         
-        if(response === "open browser") {
-          this.performBrowserOpen(url);
-          this.logger.oauth("Spawning browser.");
-        }
+        this.performBrowserOpen(url);
+        this.logger.oauth("Spawning browser.");
       }
     );
   }
