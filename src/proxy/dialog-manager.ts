@@ -22,11 +22,11 @@ export class OAuthDialogManager {
     this.logger = serverName ? createLogger(serverName, hash) : DefaultLogger;
   }
 
-  public showAuthDialog(url: string): void {
-    this.showOSPrompt(url);
+  public async showAuthDialog(url: string): Promise<void> {
+    await this.showOSPrompt(url);
   }
 
-  private showOSPrompt(url: string): void {
+  private async showOSPrompt(url: string): Promise<void> {
     this.logger.info(`OAuth authentication URL: ${url}`);
 
     const title = "MCP Connector - OAuth Authentication";
@@ -34,54 +34,128 @@ export class OAuthDialogManager {
     const displayUrl = url.length > 80 ? url.substring(0, 80) + "..." : url;
     const message = `OAuth 2.1 Authentication Required\n\nURL: ${displayUrl}\n\nA browser window will open to complete the OAuth flow.\nYou will be redirected to the authorization server to sign in.\n\nChoose an option:`;
 
-    notifier.notify(
-      {
-        title:title,
-        message: message,
-        wait: true,
-        actions: [
-          "Close",
-          "Copy URL",
-          "Open Browser"
-        ],
-        timeout: 30,
-        // icon: "random.png" 
-      },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (err: any, response: string, metadata: any) => {
-        console.log(err, response, metadata)
-        if(err) {
-          console.error("Error in dialog box");
-          this.logger.oauth("Error in dialog box");
-          this.logger.debug("Error in dialog box :: ", err);
-          process.exit(1);
-        }
+    if (process.platform.includes("darwin")) {
+      const script = `tell application "System Events" to display dialog "OAuth 2.1 Authentication Required
 
-        if(response === "timeout") {
-          console.log("Dialog timeout exceeded. Opening the browser");
-          this.logger.oauth("Dialog timeout exceeded. Opening the browser");
+URL: ${displayUrl}
+
+A browser window will open to complete the OAuth flow. You will be redirected to the authorization server to sign in.
+
+Choose an option:" with title "${title}" buttons {"Cancel", "Copy URL", "Open Browser"} default button "Open Browser" with icon note`;
+
+      const appleScriptRes = await this.executeAppleScript(
+        "osascript",
+        ["-e", script],
+        url
+      );
+      if (appleScriptRes === "cancelled") process.exit(0);
+      if (appleScriptRes === "success") {
+        return;
+      }
+    }
+
+    try {
+      notifier.notify(
+        {
+          title: title,
+          message: message,
+          wait: true,
+          actions: ["Close", "Copy URL", "Open Browser"],
+          closeLabel: "Close",
+          timeout: 30,
+          // icon: "random.png"
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (err: any, response: string, metadata: any) => {
+          console.log(err, response, metadata);
+          if (err) {
+            console.error("Error in dialog box");
+            this.logger.oauth("Error in dialog box");
+            this.logger.debug("Error in dialog box :: ", err);
+          }
+  
+          if (response === "timeout") {
+            console.log("Dialog timeout exceeded. Opening the browser");
+            this.logger.oauth("Dialog timeout exceeded. Opening the browser");
+            this.performBrowserOpen(url);
+            this.logger.oauth("Spawning browser.");
+            return;
+          }
+  
+          if (
+            response === "close" ||
+            (metadata && metadata.activationValue === "Close")
+          ) {
+            console.log("OAuth Rejected. Terminating the server");
+            this.logger.oauth("OAuth Rejected. Terminating the server");
+            process.exit(0);
+          }
+  
+          if (response === "copy url") {
+            this.copyUrlToClipboard(url);
+            console.log("OAuth URL copied to clipboard.");
+            this.logger.oauth("OAuth URL copied to clipboard.");
+            return;
+          }
+  
           this.performBrowserOpen(url);
           this.logger.oauth("Spawning browser.");
-          return;
         }
+      );
+    } catch (error) {
+      this.logger.info("Error in notifier. Will be opening browser direclty.")
+      this.logger.debug("Error in notifier. Will be opening browser direclty. Error :: ", error)
+      this.performBrowserOpen(url);
+    }
 
-        if(response === "close") {
-          console.log("OAuth Rejected. Terminating the server");
-          this.logger.oauth("OAuth Rejected. Terminating the server");
-          process.exit(0);
-        }
+  }
 
-        if(response === "copy url") {
-          this.copyUrlToClipboard(url);
-          console.log("OAuth URL copied to clipboard.");
-          this.logger.oauth("OAuth URL copied to clipboard.");
-          return;
+  private async executeAppleScript(
+    command: string,
+    args: string[],
+    url: string
+  ) {
+    return new Promise((resolve, reject) => {
+      exec(
+        `${command} ${args
+          .map((arg) => `'${arg.replace(/'/g, "'\"'\"'")}'`)
+          .join(" ")}`,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (error: any, stdout: string) => {
+          console.log(error, stdout);
+
+          if (error) {
+            if (error.message && error.message.includes("User cancelled")) {
+              this.logger.oauth(
+                "Authentication cancelled by user (macOS dialog)"
+              );
+              resolve("cancelled");
+              return;
+            }
+            this.logger.warn(
+              "Unable to show OS dialog, falling back to console prompt"
+            );
+            this.logger.debug("Dialog error:", error.message);
+            reject("failure");
+            return;
+          }
+
+          const choice = stdout.trim();
+          console.log(choice);
+          this.logger.debug(`Dialog choice: "${choice}"`);
+
+          if (choice.toLowerCase().includes("open browser")) {
+            this.performBrowserOpen(url);
+          } else if (choice.toLowerCase().includes("copy url")) {
+            this.copyUrlToClipboard(url);
+          } else {
+            this.logger.oauth("Authentication cancelled by user");
+          }
+
+          resolve("success");
         }
-        
-        this.performBrowserOpen(url);
-        this.logger.oauth("Spawning browser.");
-      }
-    );
+      );
+    });
   }
 
   private copyUrlToClipboard(url: string): void {

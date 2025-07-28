@@ -209,11 +209,11 @@ export class DefaultAuthProvider implements OAuthClientProvider {
     this.logger.debug("Tokens saved to TokenManager");
   }
 
-  redirectToAuthorization(authorizationUrl: URL): void {
+  async redirectToAuthorization(authorizationUrl: URL): Promise<void> {
     this.logger.info("Redirect to authorization URL requested", {
       authorizationUrl: authorizationUrl.toString(),
     });
-    this.dialogManager.showAuthDialog(authorizationUrl.toString());
+    await this.dialogManager.showAuthDialog(authorizationUrl.toString());
     this.startProxyServer();
     this.logger.info(
       `Please visit the following URL to authorize the application:`
