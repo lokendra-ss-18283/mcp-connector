@@ -1,23 +1,27 @@
-import open from "open";
 import { exec } from "child_process";
+
+import open from "open";
 import notifier from "node-notifier";
+
+import { TokenManager } from "../auth/token-manager.js";
+import { ROOT_CONFIG } from "../constants/constants.js";
 
 import {
   createLogger,
   FileLogger,
   logger as DefaultLogger,
-} from "../utils/file-logger.js";
-import { TokenManager } from "../auth/token-manager.js";
-import { GLOBAL_SERVER_CONFIGS } from "../cli.js";
+} from "./file-logger.js";
 
 export class OAuthDialogManager {
   private logger: FileLogger = DefaultLogger;
+  private responded: boolean = false;
 
   constructor(url: string) {
+    const { servers } = ROOT_CONFIG;
     let serverName = null;
     const hash = TokenManager.hashUrl(url);
-    if (GLOBAL_SERVER_CONFIGS && GLOBAL_SERVER_CONFIGS.has(hash)) {
-      serverName = GLOBAL_SERVER_CONFIGS.get(hash)!.name || null;
+    if (servers && servers.has(hash)) {
+      serverName = servers.get(hash)!.name || null;
     }
     this.logger = serverName ? createLogger(serverName, hash) : DefaultLogger;
   }
@@ -34,25 +38,34 @@ export class OAuthDialogManager {
     const displayUrl = url.length > 80 ? url.substring(0, 80) + "..." : url;
     const message = `OAuth 2.1 Authentication Required\n\nURL: ${displayUrl}\n\nA browser window will open to complete the OAuth flow.\nYou will be redirected to the authorization server to sign in.\n\nChoose an option:`;
 
+    /**
+     * Remove OS Specific modal handling
+     * 
     if (process.platform.includes("darwin")) {
-      const script = `tell application "System Events" to display dialog "OAuth 2.1 Authentication Required
+      try {
+        const script = `tell application "System Events" to display dialog "OAuth 2.1 Authentication Required
+  
+  URL: ${displayUrl}
+  
+  A browser window will open to complete the OAuth flow. You will be redirected to the authorization server to sign in.
+  
+  Choose an option:" with title "${title}" buttons {"Cancel", "Copy URL", "Open Browser"} default button "Open Browser" with icon note`;
 
-URL: ${displayUrl}
-
-A browser window will open to complete the OAuth flow. You will be redirected to the authorization server to sign in.
-
-Choose an option:" with title "${title}" buttons {"Cancel", "Copy URL", "Open Browser"} default button "Open Browser" with icon note`;
-
-      const appleScriptRes = await this.executeAppleScript(
-        "osascript",
-        ["-e", script],
-        url
-      );
-      if (appleScriptRes === "cancelled") process.exit(0);
-      if (appleScriptRes === "success") {
-        return;
+        const appleScriptRes = await this.executeAppleScript(
+          "osascript",
+          ["-e", script],
+          url
+        );
+        if (appleScriptRes === "cancelled") process.exit(0);
+        if (appleScriptRes === "success") {
+          this.responded = true;
+          return;
+        }
+      } catch (error) {
+        this.logger.debug("Error in dialog manager in apple script :: ", error);
       }
     }
+     */
 
     try {
       notifier.notify(
@@ -62,18 +75,18 @@ Choose an option:" with title "${title}" buttons {"Cancel", "Copy URL", "Open Br
           wait: true,
           actions: ["Close", "Copy URL", "Open Browser"],
           closeLabel: "Close",
-          timeout: 30,
+          timeout: 7,
           // icon: "random.png"
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (err: any, response: string, metadata: any) => {
-          console.log(err, response, metadata);
+          this.responded = true;
           if (err) {
             console.error("Error in dialog box");
             this.logger.oauth("Error in dialog box");
             this.logger.debug("Error in dialog box :: ", err);
           }
-  
+
           if (response === "timeout") {
             console.log("Dialog timeout exceeded. Opening the browser");
             this.logger.oauth("Dialog timeout exceeded. Opening the browser");
@@ -81,7 +94,7 @@ Choose an option:" with title "${title}" buttons {"Cancel", "Copy URL", "Open Br
             this.logger.oauth("Spawning browser.");
             return;
           }
-  
+
           if (
             response === "close" ||
             (metadata && metadata.activationValue === "Close")
@@ -90,24 +103,37 @@ Choose an option:" with title "${title}" buttons {"Cancel", "Copy URL", "Open Br
             this.logger.oauth("OAuth Rejected. Terminating the server");
             process.exit(0);
           }
-  
+
           if (response === "copy url") {
             this.copyUrlToClipboard(url);
             console.log("OAuth URL copied to clipboard.");
             this.logger.oauth("OAuth URL copied to clipboard.");
             return;
           }
-  
+
           this.performBrowserOpen(url);
           this.logger.oauth("Spawning browser.");
         }
       );
     } catch (error) {
-      this.logger.info("Error in notifier. Will be opening browser direclty.")
-      this.logger.debug("Error in notifier. Will be opening browser direclty. Error :: ", error)
+      this.responded = true;
+      this.logger.info("Error in notifier. Will be opening browser direclty.");
+      this.logger.debug(
+        "Error in notifier. Will be opening browser direclty. Error :: ",
+        error
+      );
       this.performBrowserOpen(url);
     }
 
+    // Wait for 5 seconds, then if no response, close notifier and open browser
+    setTimeout(() => {
+      if (!this.responded) {
+        this.logger.info(
+          "No response from user after 7 seconds. Opening browser automatically."
+        );
+        this.performBrowserOpen(url);
+      }
+    }, 7 * 1000);
   }
 
   private async executeAppleScript(
@@ -122,8 +148,6 @@ Choose an option:" with title "${title}" buttons {"Cancel", "Copy URL", "Open Br
           .join(" ")}`,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (error: any, stdout: string) => {
-          console.log(error, stdout);
-
           if (error) {
             if (error.message && error.message.includes("User cancelled")) {
               this.logger.oauth(
@@ -140,6 +164,7 @@ Choose an option:" with title "${title}" buttons {"Cancel", "Copy URL", "Open Br
             return;
           }
 
+          this.responded = true;
           const choice = stdout.trim();
           console.log(choice);
           this.logger.debug(`Dialog choice: "${choice}"`);
@@ -206,14 +231,6 @@ Choose an option:" with title "${title}" buttons {"Cancel", "Copy URL", "Open Br
   }
 
   private showManualInstructions(url: string): void {
-    this.logger.info("");
-    this.logger.info(
-      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    );
-    this.logger.info("📋 Manual Authentication");
-    this.logger.info(
-      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    );
     this.logger.info("");
     this.logger.info(
       "Please manually copy and paste this URL into your browser:"

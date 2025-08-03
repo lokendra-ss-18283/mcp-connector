@@ -10,9 +10,11 @@ import {
 import { join } from "path";
 import { homedir } from "os";
 import { createHash } from "crypto";
-import { FileLogger } from "../utils/file-logger";
-import { OAuthTokens } from "@modelcontextprotocol/sdk/shared/auth";
-import { TokenSchema, TokensList } from "../types";
+
+import { OAuthTokens } from "@modelcontextprotocol/sdk/shared/auth.js";
+
+import { FileLogger } from "../utils/file-logger.js";
+import { TokenSchema, TokensList } from "../interface/interface.js";
 
 export class TokenManager {
   private tokenStorePath: string;
@@ -66,8 +68,9 @@ export class TokenManager {
     return createHash("sha256").update(url).digest("hex");
   }
 
-  private getTokenFilePath(url: string): string {
-    const urlHash = TokenManager.hashUrl(url);
+  private getTokenFilePath(): string | null {
+    if (this.url === null) return null;
+    const urlHash = TokenManager.hashUrl(this.url);
     return join(this.tokenStorePath, `${urlHash}.token`);
   }
 
@@ -119,7 +122,11 @@ export class TokenManager {
 
   public saveToken(url: string, tokenDetails: TokenSchema): void {
     try {
-      const tokenFilePath = this.getTokenFilePath(url);
+      const tokenFilePath = this.getTokenFilePath();
+      if (tokenFilePath == null) {
+        this.logger.info(`URL is null couldn't save token.`);
+        return;
+      }
       tokenDetails.createdAt = Date.now();
       writeFileSync(
         tokenFilePath,
@@ -135,7 +142,11 @@ export class TokenManager {
 
   public getToken(url: string): TokenSchema | null {
     try {
-      const tokenFilePath = this.getTokenFilePath(url);
+      const tokenFilePath = this.getTokenFilePath();
+      if (tokenFilePath == null) {
+        this.logger.info(`URL is null couldn't save token.`);
+        return null;
+      }
       if (!existsSync(tokenFilePath)) {
         this.removeUrlInHashMapFile(TokenManager.hashUrl(url));
         return null;
@@ -206,7 +217,11 @@ export class TokenManager {
 
   public removeToken(url: string): boolean {
     try {
-      const tokenFilePath = this.getTokenFilePath(url);
+      const tokenFilePath = this.getTokenFilePath();
+      if (tokenFilePath == null) {
+        this.logger.info(`URL is null couldn't save token.`);
+        return false;
+      }
       if (existsSync(tokenFilePath)) {
         unlinkSync(tokenFilePath);
         this.removeUrlInHashMapFile(TokenManager.hashUrl(url));
@@ -273,17 +288,17 @@ export class TokenManager {
     }
   }
 
-  public updateUrlHashMapFile(map: Record<string, string>) : void {
-     try {
+  public updateUrlHashMapFile(map: Record<string, string>): void {
+    try {
       const mapFilePath = join(this.mcpConnectRootPath, "url-hash-map.json");
       writeFileSync(mapFilePath, JSON.stringify(map, null, 2), "utf8");
-       if(this.url) {
+      if (this.url) {
         this.logger.info(`Updated URL-hash mapping file:`);
       } else {
         console.log(`Updated URL-hash mapping file:`);
       }
     } catch (error) {
-      if(this.url) {
+      if (this.url) {
         this.logger.warn(`Failed to update URL-hash mapping file:`, error);
       } else {
         console.warn(`Failed to update URL-hash mapping file:`, error);

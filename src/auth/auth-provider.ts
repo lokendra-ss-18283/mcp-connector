@@ -1,36 +1,37 @@
+import { createHash, randomBytes } from "crypto";
+import { createServer } from "http";
+import { AddressInfo, Socket } from "net";
+import { join } from "path";
+import { existsSync, readFileSync, writeFileSync } from "fs";
+
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
+import { OAuthClientInformationFull } from "@modelcontextprotocol/sdk/shared/auth.js";
+import { OAuthClientMetadata } from "@modelcontextprotocol/sdk/shared/auth.js";
+import { OAuthClientInformation } from "@modelcontextprotocol/sdk/shared/auth.js";
+import { OAuthTokens } from "@modelcontextprotocol/sdk/shared/auth.js";
+import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
+
+import { OAuthDialogManager } from "../utils/dialog-manager.js";
+import { OAuthProxyServer } from "../proxy/oauth-proxy-server.js";
+import {
+  MCPServerConfig,
+  OAuthState,
+  TokenSchema,
+} from "../interface/interface.js";
 import {
   createLogger,
   FileLogger,
   logger as DefaultLogger,
 } from "../utils/file-logger.js";
-import { createHash, randomBytes } from "crypto";
-import { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
-import { OAuthProxyServer } from "../proxy/oauth-proxy-server.js";
-import { OAuthDialogManager } from "../proxy/dialog-manager.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import {
+  AUTH_CONSTANTS,
+  ROOT_CONFIG,
+  TransportClientClassMap,
+} from "../constants/constants.js";
+import { McpProxy } from "../proxy/mcp-proxy.js";
+
 import { TokenManager } from "./token-manager.js";
-import { proxyConfig } from "../utils/cli-util.js";
-
-import { createServer } from "http";
-import { AddressInfo, Socket } from "net";
-import { join } from "path";
-import { existsSync, readFileSync, writeFileSync } from "fs";
-import { OAuthClientInformationFull } from "@modelcontextprotocol/sdk/shared/auth.js";
-import { OAuthClientMetadata } from "@modelcontextprotocol/sdk/shared/auth.js";
-import { OAuthClientInformation } from "@modelcontextprotocol/sdk/shared/auth.js";
-import { OAuthTokens } from "@modelcontextprotocol/sdk/shared/auth.js";
-import { MCPServerConfig, TokenSchema } from "../types/index.js";
-import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import { GLOBAL_SERVER_CONFIGS } from "../cli.js";
-
-export interface OAuthState {
-  timestamp: number;
-  url: string;
-}
-
-export const globalStateStore = new Map<string, OAuthState>();
-export const globalStateStoreCompleted = new Map<string, OAuthState>();
-export const codeVerifierStore = new Map<string, string>();
 
 export class DefaultAuthProvider implements OAuthClientProvider {
   public redirectUrl!: string;
@@ -68,7 +69,9 @@ export class DefaultAuthProvider implements OAuthClientProvider {
     let usablePort: number | undefined;
     const staticConfigPort = server.port;
     if (staticConfigPort) {
-      const free = await isAuthPortAvailable(staticConfigPort);
+      const free = await DefaultAuthProvider.isAuthPortAvailable(
+        staticConfigPort
+      );
       if (free) {
         usablePort = staticConfigPort;
         instance.logger.debug(`Reusing static port from config: ${usablePort}`);
@@ -84,7 +87,9 @@ export class DefaultAuthProvider implements OAuthClientProvider {
           const redirectUrlPort: number = this.getPortFromUrl(
             data.redirect_uris[0]
           );
-          const free = await isAuthPortAvailable(redirectUrlPort);
+          const free = await DefaultAuthProvider.isAuthPortAvailable(
+            redirectUrlPort
+          );
           if (free) {
             usablePort = redirectUrlPort;
             instance.logger.debug(
@@ -102,7 +107,7 @@ export class DefaultAuthProvider implements OAuthClientProvider {
     }
 
     if (typeof usablePort === "undefined") {
-      usablePort = await getAuthAvailablePort();
+      usablePort = await DefaultAuthProvider.getAuthAvailablePort();
     }
 
     instance.port = usablePort;
@@ -173,7 +178,7 @@ export class DefaultAuthProvider implements OAuthClientProvider {
     const state = randomBytes(16).toString("base64url");
 
     // Store state globally with timestamp for verification
-    globalStateStore.set(state, {
+    AUTH_CONSTANTS.globalStateStore.set(state, {
       timestamp: Date.now(),
       url: this.baseUrl.toString(),
     });
@@ -198,6 +203,20 @@ export class DefaultAuthProvider implements OAuthClientProvider {
     ) {
       const { createdAt, ...tokenWithoutCreatedAt } =
         storedTokenData as TokenSchema;
+
+      const proxyInstance: McpProxy | undefined =
+        AUTH_CONSTANTS.proxyInstances.get(
+          TokenManager.hashUrl(this.baseUrl.toString())
+        );
+      this.logger.debug(
+        "CURRENT_PROXY :: ",
+        proxyInstance ? "Proxy Present " : "NULL"
+      );
+      if (proxyInstance && storedTokenData && storedTokenData.refresh_token) {
+        const isInvalidToken: boolean = proxyInstance.refreshRetry > 0;
+        proxyInstance.validateRefTokenUnauth(this.tokenManager);
+        if (isInvalidToken) return undefined;
+      }
       return tokenWithoutCreatedAt as OAuthTokens;
     }
     return undefined;
@@ -225,16 +244,16 @@ export class DefaultAuthProvider implements OAuthClientProvider {
     this.logger.debug("Saving code verifier");
     // Save in global map using URL hash
     const urlHash = TokenManager.hashUrl(this.baseUrl.toString());
-    codeVerifierStore.set(urlHash, codeVerifier);
+    AUTH_CONSTANTS.codeVerifierStore.set(urlHash, codeVerifier);
   }
 
   codeVerifier(): string {
     const urlHash = TokenManager.hashUrl(this.baseUrl.toString());
-    let verifier = codeVerifierStore.get(urlHash);
+    let verifier = AUTH_CONSTANTS.codeVerifierStore.get(urlHash);
     if (!verifier) {
       verifier = this.generatePKCECodeVerifier();
       this.logger.debug("Generated new PKCE code verifier");
-      codeVerifierStore.set(urlHash, verifier);
+      AUTH_CONSTANTS.codeVerifierStore.set(urlHash, verifier);
     }
     return verifier;
   }
@@ -317,7 +336,7 @@ export class DefaultAuthProvider implements OAuthClientProvider {
     );
   }
 
-  private async startProxyServer(): Promise<void> {
+  public async startProxyServer(): Promise<void> {
     if (!DefaultAuthProvider.oauthProxy) {
       this.logger.debug("Starting OAuth proxy server");
       DefaultAuthProvider.oauthProxy = new OAuthProxyServer({
@@ -328,11 +347,20 @@ export class DefaultAuthProvider implements OAuthClientProvider {
 
       DefaultAuthProvider.oauthProxy.on("oauth-success", async ({ url }) => {
         this.logger.info("OAuth successful, restarting MCP server...");
-        const serverConfig: MCPServerConfig | undefined = GLOBAL_SERVER_CONFIGS.get(TokenManager.hashUrl(url));
-        if(serverConfig) {
-          await proxyConfig(serverConfig);
+        const serverConfig: MCPServerConfig | undefined =
+          ROOT_CONFIG.servers.get(TokenManager.hashUrl(url));
+        if (serverConfig) {
+          const clientClass =
+            TransportClientClassMap[ROOT_CONFIG.transportType];
+          const clientInstance = new clientClass(
+            serverConfig,
+            ROOT_CONFIG.transportType
+          );
+          await clientInstance.setup();
         } else {
-          this.logger.error("Couldn't find proxy server config. Exiting application. Please ensure your configuration file is present and valid.");
+          this.logger.error(
+            "Couldn't find proxy server config. Exiting application. Please ensure your configuration file is present and valid."
+          );
           process.exit(1);
         }
       });
@@ -361,72 +389,74 @@ export class DefaultAuthProvider implements OAuthClientProvider {
       return 0;
     }
   }
-}
 
-// Global state verification function
-export function verifyOAuthState(state: string, logger: FileLogger): boolean {
-  if (!globalStateStore.has(state)) {
-    logger.error("OAuth state verification failed: state not found", { state });
-    return false;
+  // Global state verification function
+  public static verifyOAuthState(state: string, logger: FileLogger): boolean {
+    if (!AUTH_CONSTANTS.globalStateStore.has(state)) {
+      logger.error("OAuth state verification failed: state not found", {
+        state,
+      });
+      return false;
+    }
+
+    const stateData = AUTH_CONSTANTS.globalStateStore.get(state)!;
+    const now = Date.now();
+    const maxAge = 300000; // 5 minutes
+
+    if (now - stateData.timestamp > maxAge) {
+      logger.error("OAuth state verification failed: state expired", {
+        state,
+        age: now - stateData.timestamp,
+      });
+      AUTH_CONSTANTS.globalStateStore.delete(state);
+      return false;
+    }
+
+    logger.debug("OAuth state verification successful", { state });
+    return true;
   }
 
-  const stateData = globalStateStore.get(state)!;
-  const now = Date.now();
-  const maxAge = 300000; // 5 minutes
-
-  if (now - stateData.timestamp > maxAge) {
-    logger.error("OAuth state verification failed: state expired", {
-      state,
-      age: now - stateData.timestamp,
-    });
-    globalStateStore.delete(state);
-    return false;
+  public static getOAuthState(state: string): OAuthState | undefined {
+    return AUTH_CONSTANTS.globalStateStore.get(state);
   }
 
-  logger.debug("OAuth state verification successful", { state });
-  return true;
-}
+  // Factory function to create auth provider instances
+  public static async createAuthProvider(
+    server: MCPServerConfig,
+    config?: Partial<OAuthClientProvider>
+  ): Promise<DefaultAuthProvider> {
+    const provider = await DefaultAuthProvider.create(server);
 
-export function getOAuthState(state: string): OAuthState | undefined {
-  return globalStateStore.get(state);
-}
+    if (config) {
+      Object.assign(provider, config);
+    }
 
-// Factory function to create auth provider instances
-export async function createAuthProvider(
-  server: MCPServerConfig,
-  config?: Partial<OAuthClientProvider>
-): Promise<DefaultAuthProvider> {
-  const provider = await DefaultAuthProvider.create(server);
-
-  if (config) {
-    Object.assign(provider, config);
+    return provider;
   }
 
-  return provider;
+  public static isAuthPortAvailable = async (port: number) => {
+    return new Promise((resolve) => {
+      const tester = new Socket();
+      tester.once("error", () => resolve(true));
+      tester.once("connect", () => {
+        tester.destroy();
+        resolve(false);
+      });
+      tester.connect(port, "127.0.0.1");
+    });
+  };
+
+  public static getAuthAvailablePort = async (): Promise<number> => {
+    // Get available port with dummy server
+    return new Promise((resolve, reject) => {
+      const tempServer = createServer();
+
+      tempServer.listen(0, () => {
+        const { port } = tempServer.address() as AddressInfo;
+        tempServer.close(() => resolve(port));
+      });
+
+      tempServer.on("error", (err) => reject(err));
+    });
+  };
 }
-
-const isAuthPortAvailable = async (port: number) => {
-  return new Promise((resolve) => {
-    const tester = new Socket();
-    tester.once("error", () => resolve(true));
-    tester.once("connect", () => {
-      tester.destroy();
-      resolve(false);
-    });
-    tester.connect(port, "127.0.0.1");
-  });
-};
-
-export const getAuthAvailablePort = async (): Promise<number> => {
-  // Get available port with dummy server
-  return new Promise((resolve, reject) => {
-    const tempServer = createServer();
-
-    tempServer.listen(0, () => {
-      const { port } = tempServer.address() as AddressInfo;
-      tempServer.close(() => resolve(port));
-    });
-
-    tempServer.on("error", (err) => reject(err));
-  });
-};

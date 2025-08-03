@@ -1,79 +1,13 @@
 import { createRequire } from "module";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  createLogger,
-  FileLogger,
-  logger as DefaultLogger,
-} from "./file-logger.js";
-import { createAuthProvider } from "../auth/auth-provider.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import {
-  McpProxyConfig,
-  pendingInitErrors,
-  proxyInstances,
-} from "../proxy/mcp-proxy.js";
-import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import { TokenManager } from "../auth/token-manager.js";
-import { GLOBAL_SERVER_CONFIGS, HEADERS } from "../cli.js";
-import { existsSync, readFileSync, rmSync } from "fs";
-import { MCPServerConfig, TokensList } from "../types/index.js";
+import { existsSync, readdirSync, readFileSync, rmSync } from "fs";
 import { join } from "path";
 
-export async function proxyConfig(server: MCPServerConfig) {
-  let serverName = null;
-  const url: string = server.url;
-  const hash = TokenManager.hashUrl(url);
-  if (GLOBAL_SERVER_CONFIGS && GLOBAL_SERVER_CONFIGS.has(hash)) {
-    serverName = GLOBAL_SERVER_CONFIGS.get(hash)!.name || null;
-  }
-  const logger = serverName ? createLogger(serverName, hash) : DefaultLogger;
+import { TokenManager } from "../auth/token-manager.js";
+import { MCPServerConfig, TokensList } from "../interface/interface.js";
+import { ROOT_CONFIG } from "../constants/constants.js";
 
-  if (proxyInstances.has(hash)) {
-    const proxyInstance = proxyInstances.get(hash);
-    const pendingInitError = pendingInitErrors.get(hash);
-    if (proxyInstance && pendingInitError) {
-      proxyInstance.transportToServer.send(pendingInitError);
-      pendingInitErrors.delete(hash);
-    }
-  } else {
-    const localTransport = new StdioServerTransport();
-    logger.debug("STDIO transport created");
+import { FileLogger } from "./file-logger.js";
 
-    // Create auth provider first
-    const authProvider = await createAuthProvider(server);
-
-    const clientTransport: Transport = new StreamableHTTPClientTransport(
-      new URL(url),
-      {
-        authProvider: hasKeyInJson(HEADERS, "Authorization") ? undefined : authProvider,
-        requestInit: {
-          headers: HEADERS
-        },
-      }
-    );
-
-    await clientTransport.start();
-
-    if (authProvider && typeof authProvider.setClientTransport === "function") {
-      logger.debug("Setting client transport in auth provider");
-      authProvider.setClientTransport(clientTransport);
-      logger.debug("Client transport set successfully");
-    } else {
-      logger.warn("Auth provider does not have setClientTransport method");
-    }
-
-    proxyInstances.set(
-      hash,
-      McpProxyConfig({
-        transportToClient: localTransport,
-        transportToServer: clientTransport,
-        logger,
-        url,
-      })
-    );
-    await localTransport.start();
-  }
-}
 export async function getMCPConnectVersion() {
   const require = createRequire(import.meta.url);
   try {
@@ -84,7 +18,7 @@ export async function getMCPConnectVersion() {
   }
 }
 
-export const printHelperText = (logger: FileLogger): void => {
+export const printHelperText = (): void => {
   console.info(`
 Usage: npx mcp-connector [urls...] [options]
 
@@ -113,7 +47,7 @@ Token Storage:
   `);
 };
 
-export const listTokens = (tokenManager: TokenManager, logger: FileLogger) => {
+export const listTokens = (tokenManager: TokenManager) => {
   console.log("📋 Stored Authentication Tokens:\n");
   const tokens: TokensList[] = tokenManager.listTokens(true);
 
@@ -151,17 +85,22 @@ export const listTokens = (tokenManager: TokenManager, logger: FileLogger) => {
   console.log(`\n📍 Token store location: ${tokenManager.getStorePath()}`);
 };
 
-export const clearAllData = (
-  tokenManager: TokenManager,
-  logger: FileLogger
-) => {
+export const clearAllData = (tokenManager: TokenManager) => {
   if (existsSync(tokenManager.getMcpConnectFolderPath())) {
     try {
       rmSync(tokenManager.getMcpConnectFolderPath(), {
         recursive: true,
         force: true,
       });
-      console.log("🗑️ Removed all files and folders in ~/.mcp-connector");
+      if (
+        existsSync(tokenManager.getMcpConnectFolderPath()) &&
+        readdirSync(tokenManager.getMcpConnectFolderPath()).length > 0
+      ) {
+        console.warn("Some files could not be deleted in ~/.mcp-connector:");
+        console.warn(readdirSync(tokenManager.getMcpConnectFolderPath()));
+      } else {
+        console.log("🗑️ Removed all files and folders in ~/.mcp-connector");
+      }
     } catch (error) {
       console.log("Failed to remove ~/.mcp-connector:", error);
     }
@@ -170,7 +109,7 @@ export const clearAllData = (
   }
 };
 
-export const printUrlMap = (tokenManager: TokenManager, logger: FileLogger) => {
+export const printUrlMap = (tokenManager: TokenManager) => {
   const urls: Record<string, string> = tokenManager.getUrlInHashMapFile();
   const keys = Object.keys(urls);
   if (keys.length > 0) {
@@ -200,16 +139,20 @@ export const parseServerUrls = (args: string[], logger: FileLogger) => {
 
       let name = nameRaw.replace(/[^a-zA-Z0-9-_ ]/g, "");
       name = name.replace(/ +/g, "-");
-      
+
       if (!name) {
-        console.error("❌ Invalid server name. Please provide a name containing only alphanumeric characters, hyphens, underscores, or spaces.");
+        console.error(
+          "❌ Invalid server name. Please provide a name containing only alphanumeric characters, hyphens, underscores, or spaces."
+        );
         process.exit(1);
       }
 
       try {
         new URL(url);
       } catch {
-        console.error(`❌ Invalid URL provided for inline config: "${url}". Please provide a valid http(s) URL.`);
+        console.error(
+          `❌ Invalid URL provided for inline config: "${url}". Please provide a valid http(s) URL.`
+        );
         process.exit(1);
       }
 
@@ -224,7 +167,7 @@ export const parseServerUrls = (args: string[], logger: FileLogger) => {
       const serverConfig: MCPServerConfig =
         port !== undefined ? { name, url, port } : { name, url };
 
-      GLOBAL_SERVER_CONFIGS.set(TokenManager.hashUrl(url), serverConfig);
+      ROOT_CONFIG.servers.set(TokenManager.hashUrl(url), serverConfig);
       continue;
     }
     i += 1;
@@ -288,7 +231,7 @@ export const parseServerUrls = (args: string[], logger: FileLogger) => {
       }
 
       const getServerConfig = fileConfig[serverName];
-      if (isValidMCPServerConfig(getServerConfig)) {
+      if (isValidMCPServerConfig(getServerConfig, logger)) {
         const serverConfig: MCPServerConfig = {
           name: getServerConfig.name || serverName,
           url: getServerConfig.url,
@@ -296,7 +239,7 @@ export const parseServerUrls = (args: string[], logger: FileLogger) => {
         if (getServerConfig.port && typeof getServerConfig.port === "number") {
           serverConfig.port = getServerConfig.port;
         }
-        GLOBAL_SERVER_CONFIGS.set(
+        ROOT_CONFIG.servers.set(
           TokenManager.hashUrl(serverConfig.url),
           serverConfig
         );
@@ -306,24 +249,32 @@ export const parseServerUrls = (args: string[], logger: FileLogger) => {
         );
         process.exit(1);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.log(
         "❌ Invalid configuration file. Please verify the file format and try again."
       );
+      logger.info(
+        "❌ Invalid configuration file. Please verify the file format and try again."
+      );
+      logger.debug("❌ Error while validation configuration file, ", error);
       process.exit(1);
     }
   }
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function isValidMCPServerConfig(value: any): value is MCPServerConfig {
+ 
+function isValidMCPServerConfig(
+  value: MCPServerConfig,
+  logger: FileLogger
+): value is MCPServerConfig {
   try {
     return (
       typeof value === "object" &&
       value !== null &&
       typeof value.url === "string"
     );
-  } catch (error) {
+  } catch (error: unknown) {
+    logger.debug("Error in validating server config :: ", error);
     return false;
   }
 }
@@ -340,7 +291,7 @@ export function isValidJson(value: any): Record<string, string> {
 export function removeArg(args: string[], key: string): string[] {
   const idx = args.indexOf(key);
   if (idx !== -1) {
-    args.splice(idx, 2);
+    args.splice(idx, 1);
   }
   return args;
 }

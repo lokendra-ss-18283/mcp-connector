@@ -17,11 +17,12 @@
   "license": "MIT",
   "scripts": {
     "start": "node dist/cli.js",
-    "build": "tsc",
-    "build:local": "eslint . && tsc",
+    "build": "npm run lint:fix && tsc",
     "build:watch": "tsc --watch",
-    "prepare": "npm run build:local",
-    "prepublishOnly": "npm run build:local"
+    "lint": "eslint",
+    "lint:fix": "eslint --fix || exit 1",
+    "format": "prettier --write \"src/**/*.{ts,}\"",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.16.0",
@@ -31,11 +32,11 @@
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
-    "@types/node": "^20.10.0",
+    "@types/node": "^20.19.9",
     "@types/node-notifier": "^8.0.5",
-    "@typescript-eslint/eslint-plugin": "^8.38.0",
-    "@typescript-eslint/parser": "^8.38.0",
     "eslint": "^9.31.0",
+    "eslint-plugin-import": "^2.32.0",
+    "prettier": "^2.8.8",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0"
   },

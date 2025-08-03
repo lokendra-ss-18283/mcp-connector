@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { TokenManager } from "./auth/token-manager.js";
-import { MCPServerConfig } from "./types/index.js";
+import { CLIConfig, MCPServerConfig } from "./interface/interface.js";
 import { logger } from "./utils/file-logger.js";
 import {
   clearAllData,
@@ -11,34 +11,20 @@ import {
   parseServerUrls,
   printHelperText,
   printUrlMap,
-  proxyConfig,
   removeArg,
 } from "./utils/cli-util.js";
 import { cleanupOnExit, onProcessStart } from "./utils/process-util.js";
-
-interface CLIConfig {
-  servers: MCPServerConfig[];
-  auth?: {
-    port?: number;
-    secretKey?: string;
-    required?: boolean;
-  };
-  client?: {
-    maxRetries?: number;
-    retryDelay?: number;
-    streamingEnabled?: boolean;
-  };
-}
-
-export const GLOBAL_SERVER_CONFIGS: Map<string, MCPServerConfig> = new Map<
-  string,
-  MCPServerConfig
->();
-
-export let DEBUG_MODE: boolean = false;
-export let MCP_CONNECT_VERSION: string;
-
-export let HEADERS: Record<string, string> = {};
+import {
+  DEBUG_MODE,
+  ROOT_CONFIG,
+  setDebugMode,
+  setHeaders,
+  setMcpConnectVersion,
+  setTransportType,
+  TransportClientClassMap,
+} from "./constants/constants.js";
+import { getTransportType } from "./utils/enum-utils.js";
+import { TransportType } from "./constants/enum.js";
 
 async function loadConfig(serverUrls: MCPServerConfig[]): Promise<CLIConfig> {
   // If URLs provided via args, use them instead of config file
@@ -53,13 +39,15 @@ async function loadConfig(serverUrls: MCPServerConfig[]): Promise<CLIConfig> {
 }
 
 async function main(): Promise<void> {
-  MCP_CONNECT_VERSION = await getMCPConnectVersion();
-  HEADERS = {
+  const MCP_CONNECT_VERSION = await getMCPConnectVersion();
+  setMcpConnectVersion(MCP_CONNECT_VERSION);
+
+  setHeaders({
     "user-agent": `mcp-connector/${MCP_CONNECT_VERSION}`,
-  };
+  });
 
   onProcessStart();
-  const args = process.argv.slice(2);
+  const args: Array<string> = process.argv.slice(2);
 
   if (args.includes("--version") || args.includes("-v")) {
     console.log(`mcp-connector version: ${MCP_CONNECT_VERSION}`);
@@ -67,7 +55,7 @@ async function main(): Promise<void> {
   }
 
   if (args.includes("--help") || args.includes("-h")) {
-    printHelperText(logger);
+    printHelperText();
     process.exit(0);
   }
 
@@ -75,7 +63,7 @@ async function main(): Promise<void> {
   const tokenManager = new TokenManager(logger);
 
   if (args.includes("--list-tokens")) {
-    listTokens(tokenManager, logger);
+    listTokens(tokenManager);
     process.exit(0);
   }
 
@@ -86,17 +74,17 @@ async function main(): Promise<void> {
   }
 
   if (args.includes("--clean-all")) {
-    clearAllData(tokenManager, logger);
+    clearAllData(tokenManager);
     process.exit(0);
   }
 
   if (args.includes("--url-map")) {
-    printUrlMap(tokenManager, logger);
+    printUrlMap(tokenManager);
     process.exit(0);
   }
 
   // Remove debug argument from args list.
-  DEBUG_MODE = args.includes("--debug") || args.includes("-d");
+  setDebugMode(args.includes("--debug") || args.includes("-d"));
   if (DEBUG_MODE) {
     removeArg(args, "--debug");
     removeArg(args, "--d");
@@ -118,11 +106,16 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  // Validate transport type and remove it from args
+  const transportType: TransportType = getTransportType(args);
+  setTransportType(transportType);
+  removeArg(args, transportType);
+
   const hasHeaders = args.includes("--headers");
   const headersIndex = hasHeaders ? args[args.indexOf("--headers") + 1] : "";
   if (hasHeaders && headersIndex) {
     const headers = isValidJson(headersIndex);
-    HEADERS = { ...HEADERS, ...headers };
+    setHeaders({ ...headers, ...headers });
     removeArg(args, "--headers");
     removeArg(args, headersIndex);
   }
@@ -135,7 +128,7 @@ async function main(): Promise<void> {
       ? args.indexOf("--inline-config")
       : args.indexOf("--config");
     parseServerUrls(args.slice(argStartIndex), logger);
-    const serverUrls = Array.from(GLOBAL_SERVER_CONFIGS.values());
+    const serverUrls = Array.from(ROOT_CONFIG.servers.values());
 
     // Load configuration
     const config = await loadConfig(serverUrls);
@@ -144,14 +137,18 @@ async function main(): Promise<void> {
       logger.error(
         "❌ No servers configured. Please provide URLs or use --config option."
       );
-      printHelperText(logger);
+      printHelperText();
       return;
     }
 
     await Promise.allSettled(
-      config.servers.map((server) => {
+      config.servers.map(async (server) => {
         logger.debug("Current MCP server configuration", server);
-        proxyConfig(server);
+        const clientClass = TransportClientClassMap[transportType];
+        if (clientClass) {
+          const clientInstance = new clientClass(server, transportType);
+          await clientInstance.setup();
+        }
       })
     );
   } catch (error) {

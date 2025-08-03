@@ -2,9 +2,7 @@ import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
+const __dirname = dirname(fileURLToPath(import.meta.url));
 export class HTMLRenderer {
   private templatesPath: string;
 
@@ -25,7 +23,10 @@ export class HTMLRenderer {
       const authCompletedMsg = stateAuthCompleted
         ? '<span style="margin-left:8px; color:#388e3c; font-weight:500;">(Already Authenticated)</span>'
         : "";
-      template = template.replace(/{{AlreadyAuthenticated}}/g, authCompletedMsg);
+      template = template.replace(
+        /{{AlreadyAuthenticated}}/g,
+        authCompletedMsg
+      );
       return template;
     } catch {
       return this.getFallbackSuccessPage(baseUrl);

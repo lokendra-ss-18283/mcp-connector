@@ -91,6 +91,7 @@ npx mcp-connector --debug [--options]
 ### Using CLI Arguments
 
 You can specify servers directly:
+
 ```bash
 npx mcp-connector --inline-config mcp-connector-server http://localhost:3000
 ```
@@ -98,6 +99,7 @@ npx mcp-connector --inline-config mcp-connector-server http://localhost:3000
 ### Using a Config File
 
 Example `my-config.json`:
+
 ```bash
 {
   "server-name": { 
@@ -120,16 +122,20 @@ Example `my-config.json`:
 ## Authentication Flow
 
 - When authentication is required, MCP Connector will:
-  - Show a native OS dialog (macOS, Windows, Linux) to guide you through OAuth.
+  - Show a native OS dialog/notification (macOS, Windows, Linux) to guide you through OAuth.
   - Open the browser automatically or copy the OAuth URL to your clipboard.
   - Wait for authentication to complete (timeout: 5 minutes).
   - Store tokens securely in `~/.mcp-connector/{server_hash}/`.
+  - Local Authentication Server will close 5 seconds after successful OAuth.
+  - MCP Connector currently implements an automatic retry mechanism:  
+    - If a 401 Unauthorized error is encountered, the connector will retry the request up to 3 times before failing.
 
 ---
 
 ## Cleanup Logic
 
 On process exit (`SIGINT`, `SIGTERM`), MCP Connector will:
+
 - 🛑 Close all proxy transports.
 - 🧹 Clean up pending initialization errors.
 - 🗑️ Clear global state stores.
@@ -176,8 +182,3 @@ MIT
 ## Contributing
 
 Pull requests and issues are welcome!
-
-## To Do
-- Add static client metadata support to eliminate the need for dynamic client registration (DCR).
-- Update TypeScript-to-JavaScript conversion to generate minified files instead of plain JavaScript.
-- Track API calls in the log file for each process and remove expired entries.

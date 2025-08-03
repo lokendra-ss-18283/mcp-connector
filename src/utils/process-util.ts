@@ -1,41 +1,37 @@
 import { existsSync, readdirSync, rmSync } from "fs";
-import {
-  codeVerifierStore,
-  DefaultAuthProvider,
-  globalStateStore,
-  globalStateStoreCompleted,
-} from "../auth/auth-provider.js";
-import { TokenManager } from "../auth/token-manager.js";
-import { GLOBAL_SERVER_CONFIGS } from "../cli.js";
-import { pendingInitErrors, proxyInstances } from "../proxy/mcp-proxy.js";
-import { logger } from "./file-logger.js";
 import { join } from "path";
+
+import { DefaultAuthProvider } from "../auth/auth-provider.js";
+import { TokenManager } from "../auth/token-manager.js";
+import { AUTH_CONSTANTS, ROOT_CONFIG } from "../constants/constants.js";
+
+import { logger } from "./file-logger.js";
 
 export const cleanupOnExit = async () => {
   // Clean up proxy instances
-  if (typeof proxyInstances !== "undefined") {
-    for (const [hash, instance] of proxyInstances.entries()) {
+  if (typeof AUTH_CONSTANTS.proxyInstances !== "undefined") {
+    for (const [hash, instance] of AUTH_CONSTANTS.proxyInstances.entries()) {
       try {
-        instance.transportToClient?.close?.();
-        instance.transportToServer?.close?.();
+        instance.clientTransport?.close?.();
+        instance.serverTransport?.close?.();
       } catch (e) {
         console.log("Error in proxy instances clean up :: ", e);
       }
-      proxyInstances.delete(hash);
+      AUTH_CONSTANTS.proxyInstances.delete(hash);
     }
   }
 
   // Clean up pending init errors
-  if (typeof pendingInitErrors !== "undefined") {
-    pendingInitErrors.clear();
+  if (typeof AUTH_CONSTANTS.msgStalledByAuth !== "undefined") {
+    AUTH_CONSTANTS.msgStalledByAuth.clear();
   }
 
   // Clean up global state stores
-  if (typeof globalStateStore !== "undefined") {
-    globalStateStore.clear();
+  if (typeof AUTH_CONSTANTS.globalStateStore !== "undefined") {
+    AUTH_CONSTANTS.globalStateStore.clear();
   }
-  if (typeof globalStateStoreCompleted !== "undefined") {
-    globalStateStoreCompleted.clear();
+  if (typeof AUTH_CONSTANTS.globalStateStoreCompleted !== "undefined") {
+    AUTH_CONSTANTS.globalStateStoreCompleted.clear();
   }
 
   // Clean up token manager data
@@ -53,20 +49,19 @@ export const cleanupOnExit = async () => {
       DefaultAuthProvider.oauthProxy
     ) {
       await DefaultAuthProvider.oauthProxy.stop?.(logger);
-      DefaultAuthProvider.oauthProxy = null;
     }
   } catch (e) {
     console.log("Error in proxy server clean up :: ", e);
   }
 
   // Clean up code verifier store
-  if (typeof codeVerifierStore !== "undefined") {
-    codeVerifierStore.clear();
+  if (typeof AUTH_CONSTANTS.codeVerifierStore !== "undefined") {
+    AUTH_CONSTANTS.codeVerifierStore.clear();
   }
 
   // Clean up server configs
-  if (typeof GLOBAL_SERVER_CONFIGS !== "undefined") {
-    GLOBAL_SERVER_CONFIGS.clear();
+  if (typeof ROOT_CONFIG.servers !== "undefined") {
+    ROOT_CONFIG.servers.clear();
   }
 
   logger.info("🧹 Cleaned up all process data before exit.");
@@ -82,13 +77,18 @@ export const onProcessStart = () => {
 
     readdirSync(tokenManager.getMcpConnectFolderPath(), {
       withFileTypes: true,
-    }).filter((d) => d.isDirectory()).map((dir) => {
-      if(!hashKeys.includes(dir.name)) {
-        if(existsSync(join(dir.parentPath, dir.name))) {
-          rmSync(join(dir.parentPath, dir.name), { recursive: true, force: true })
-        }
-      }
     })
+      .filter((d) => d.isDirectory())
+      .map((dir) => {
+        if (!hashKeys.includes(dir.name)) {
+          if (existsSync(join(dir.parentPath, dir.name))) {
+            rmSync(join(dir.parentPath, dir.name), {
+              recursive: true,
+              force: true,
+            });
+          }
+        }
+      });
 
     if (hashKeys.length > 0) {
       let needsHashFileUpdate = false;
@@ -109,4 +109,4 @@ export const onProcessStart = () => {
   } catch (error) {
     console.log("Error in url has map clean up :: ", error);
   }
-}
+};

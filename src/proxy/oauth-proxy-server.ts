@@ -1,20 +1,16 @@
-import express from "express";
 import { createServer, Server } from "http";
-import { HTMLRenderer } from "./html-renderer.js";
-import { FileLogger } from "../utils/file-logger.js";
-import { getAuthAvailablePort, getOAuthState, globalStateStore, globalStateStoreCompleted, OAuthState, verifyOAuthState,  } from "../auth/auth-provider.js";
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { EventEmitter } from "events";
-import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { join, dirname } from "path";
-import { fileURLToPath } from "url"
-interface OAuthProxyOptions {
-  port?: number;
-  timeout?: number;
-  maxRetries?: number;
-  clientTransport: Transport,
-  logger: FileLogger
-}
+import { fileURLToPath } from "url";
+
+import express from "express";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+
+import { HTMLRenderer } from "../utils/html-renderer.js";
+import { FileLogger } from "../utils/file-logger.js";
+import { DefaultAuthProvider } from "../auth/auth-provider.js";
+import { OAuthProxyOptions, OAuthState } from "../interface/interface.js";
+import { AUTH_CONSTANTS } from "../constants/constants.js";
 
 export class OAuthProxyServer extends EventEmitter {
   private app: express.Application;
@@ -23,6 +19,7 @@ export class OAuthProxyServer extends EventEmitter {
   private options: Required<OAuthProxyOptions>;
   private isRunning: boolean = false;
   private clientTransport!: StreamableHTTPClientTransport;
+  private shutdownTimeout: NodeJS.Timeout | null = null;
 
   constructor(options: OAuthProxyOptions) {
     super();
@@ -31,26 +28,27 @@ export class OAuthProxyServer extends EventEmitter {
       timeout: 5 * 60 * 1000,
       maxRetries: options.maxRetries || 3,
       clientTransport: options.clientTransport,
-      logger: options.logger
+      logger: options.logger,
     };
 
     this.app = express();
     this.htmlRenderer = new HTMLRenderer();
-    this.clientTransport = options.clientTransport as StreamableHTTPClientTransport;
+    this.clientTransport =
+      options.clientTransport as StreamableHTTPClientTransport;
     this.setupRoutes();
   }
 
   private setupRoutes(): void {
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = dirname(__filename);
-    
+
     this.app.use(express.static(join(__dirname, "../../public")));
 
     this.app.get("/health", (req, res) => {
       res.json({
         status: "healthy",
         uptime: process.uptime(),
-        activeStates: globalStateStore.size,
+        activeStates: AUTH_CONSTANTS.globalStateStore.size,
       });
     });
 
@@ -81,17 +79,32 @@ export class OAuthProxyServer extends EventEmitter {
               "Missing required parameters."
             )
           );
-          logger.error("Authentication failed : mandatory parameters (code, state) is not present in request");
-          await this.stop(logger);
+          logger.error(
+            "Authentication failed : mandatory parameters (code, state) is not present in request"
+          );
+          setTimeout(async () => {
+            await this.stop(logger);
+          }, 250000);
           return;
         }
 
         // Load OAuth state from memory
-        const oauthState = verifyOAuthState(state as string, logger);
+        const oauthState = DefaultAuthProvider.verifyOAuthState(
+          state as string,
+          logger
+        );
         if (!oauthState) {
-          if(globalStateStoreCompleted.has(state as string)) {
-            logger.info("Trying to access already completed state. Hence returning.");
-            res.send(this.htmlRenderer.renderSuccessPage(globalStateStoreCompleted.get(state as string)?.url || "null", true));
+          if (AUTH_CONSTANTS.globalStateStoreCompleted.has(state as string)) {
+            logger.info(
+              "Trying to access already completed state. Hence returning."
+            );
+            res.send(
+              this.htmlRenderer.renderSuccessPage(
+                AUTH_CONSTANTS.globalStateStoreCompleted.get(state as string)
+                  ?.url || "null",
+                true
+              )
+            );
             await this.stop(logger);
             return;
           }
@@ -103,20 +116,28 @@ export class OAuthProxyServer extends EventEmitter {
             )
           );
           await this.stop(logger);
+          await new Promise((resolve) => setTimeout(resolve, 5 * 1000)); // Close the server after 5 seconds
+          await this.stop(logger);
           return;
         }
-        
-        logger.debug(`Processing OAuth callback for state: ${state}`);
-        
-        const oauthStateValue: OAuthState | undefined = getOAuthState(state as string);
-        await this.clientTransport?.finishAuth(code.toString());
-        if(oauthStateValue) {
-          globalStateStoreCompleted.set(state as string, oauthStateValue);
-        }
-        globalStateStore.delete(state as string);
-        this.emit("oauth-success", { url: oauthStateValue?.url });
-        res.send(this.htmlRenderer.renderSuccessPage(oauthStateValue?.url || "null"));
 
+        logger.debug(`Processing OAuth callback for state: ${state}`);
+
+        const oauthStateValue: OAuthState | undefined =
+          DefaultAuthProvider.getOAuthState(state as string);
+        await this.clientTransport?.finishAuth(code.toString());
+        if (oauthStateValue) {
+          AUTH_CONSTANTS.globalStateStoreCompleted.set(
+            state as string,
+            oauthStateValue
+          );
+        }
+        AUTH_CONSTANTS.globalStateStore.delete(state as string);
+        this.emit("oauth-success", { url: oauthStateValue?.url });
+        res.send(
+          this.htmlRenderer.renderSuccessPage(oauthStateValue?.url || "null")
+        );
+        return;
       } catch (error) {
         logger.error("Callback handler error:", error);
         res.send(
@@ -125,10 +146,24 @@ export class OAuthProxyServer extends EventEmitter {
             "An unexpected error occurred during authentication."
           )
         );
+        this.resetShutdownTimer(logger);
         await this.stop(logger);
         return;
       }
     });
+  }
+
+  private resetShutdownTimer(logger: FileLogger) {
+    if (this.shutdownTimeout) {
+      clearTimeout(this.shutdownTimeout);
+      this.shutdownTimeout = null;
+    }
+    this.shutdownTimeout = setTimeout(async () => {
+      logger.info(
+        "OAuth proxy server timeout reached (5 seconds after last callback). Stopping server."
+      );
+      await this.stop(logger);
+    }, 5 * 1000); // 5 seconds
   }
 
   public async ensureServerRunning(logger: FileLogger): Promise<void> {
@@ -141,8 +176,13 @@ export class OAuthProxyServer extends EventEmitter {
 
       this.server.on("error", async (error: NodeJS.ErrnoException) => {
         if (error.code === "EADDRINUSE") {
-          logger.warn(`Port ${this.options.port} is in use, trying ${this.options.port + 1}...`);
-          const availablePort = await getAuthAvailablePort();
+          logger.warn(
+            `Port ${this.options.port} is in use, trying ${
+              this.options.port + 1
+            }...`
+          );
+          const availablePort =
+            await DefaultAuthProvider.getAuthAvailablePort();
           this.options.port = availablePort;
           this.server.listen(this.options.port);
         } else {
@@ -152,7 +192,15 @@ export class OAuthProxyServer extends EventEmitter {
 
       this.server.listen(this.options.port, () => {
         this.isRunning = true;
-        logger.debug(`OAuth proxy server started on http://localhost:${this.options.port}`);
+        logger.debug(
+          `OAuth proxy server started on http://localhost:${this.options.port}`
+        );
+        setTimeout(async () => {
+          logger.info(
+            "OAuth proxy server timeout reached (5 minutes). Stopping server."
+          );
+          await this.stop(logger);
+        }, this.options.timeout);
         resolve();
       });
     });
@@ -162,7 +210,8 @@ export class OAuthProxyServer extends EventEmitter {
     if (this.server && this.isRunning) {
       return new Promise((resolve) => {
         this.server.close(() => {
-          globalStateStoreCompleted.clear();
+          AUTH_CONSTANTS.globalStateStoreCompleted.clear();
+          DefaultAuthProvider.oauthProxy = null;
           this.isRunning = false;
           logger.info("OAuth proxy server stopped");
           resolve();
@@ -172,14 +221,14 @@ export class OAuthProxyServer extends EventEmitter {
   }
 
   public getActiveStateCount(): number {
-    return globalStateStore.size;
+    return AUTH_CONSTANTS.globalStateStore.size;
   }
 
   public getServerInfo(): { isRunning: boolean; port: number; states: number } {
     return {
       isRunning: this.isRunning,
       port: this.options.port,
-      states: globalStateStore.size,
+      states: AUTH_CONSTANTS.globalStateStore.size,
     };
   }
 }
