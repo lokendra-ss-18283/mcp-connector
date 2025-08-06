@@ -14,8 +14,8 @@ export const cleanupOnExit = async () => {
       try {
         instance.clientTransport?.close?.();
         instance.serverTransport?.close?.();
-      } catch (e) {
-        console.log("Error in proxy instances clean up :: ", e);
+      } catch {
+        // Soft error
       }
       AUTH_CONSTANTS.proxyInstances.delete(hash);
     }
@@ -38,8 +38,8 @@ export const cleanupOnExit = async () => {
   try {
     const tokenManager = new TokenManager(logger);
     tokenManager.cleanExpiredTokens();
-  } catch (e) {
-    console.log("Error in token clean up :: ", e);
+  } catch {
+    // Soft error
   }
 
   // Clean up OAuth proxy server if running
@@ -50,8 +50,8 @@ export const cleanupOnExit = async () => {
     ) {
       await DefaultAuthProvider.oauthProxy.stop?.(logger);
     }
-  } catch (e) {
-    console.log("Error in proxy server clean up :: ", e);
+  } catch {
+    // Soft error
   }
 
   // Clean up code verifier store
@@ -106,7 +106,7 @@ export const onProcessStart = () => {
         tokenManager.updateUrlHashMapFile(getUrlMap);
       }
     }
-  } catch (error) {
-    console.log("Error in url has map clean up :: ", error);
+  } catch {
+    // Soft error
   }
 };

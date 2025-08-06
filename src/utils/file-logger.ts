@@ -28,7 +28,7 @@ export class FileLogger {
         mkdirSync(this.logPath, { recursive: true });
       }
     } catch {
-      console.log("Error while creating log directory :: ", this.logPath);
+      // Soft error
     }
   }
 
@@ -44,8 +44,8 @@ export class FileLogger {
     try {
       const logEntry = this.formatMessage(level, message, data);
       appendFileSync(this.logFile, logEntry, "utf8");
-    } catch (e: unknown) {
-      console.log("Error while writing log to file :: ", this.logFile, e);
+    } catch {
+      // Soft error
     }
   }
 

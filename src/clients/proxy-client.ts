@@ -40,9 +40,6 @@ export class ProxyClient extends BaseClient {
           proxyInstance?.log.error(
             "[Client → Server] Re-authentication mechanism reached the maximum number of retries. Please check if there is a persistent 401 issue with the MCP server."
           );
-          console.error(
-            "[Client → Server] Re-authentication mechanism reached the maximum number of retries. Please check if there is a persistent 401 issue with the MCP server."
-          );
           process.exit(1);
         }
         await proxyInstance?.auth?.startProxyServer();

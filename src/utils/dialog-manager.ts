@@ -83,13 +83,11 @@ export class OAuthDialogManager {
         (err: any, response: string, metadata: any) => {
           this.responded = true;
           if (err) {
-            console.error("Error in dialog box");
             this.logger.oauth("Error in dialog box");
             this.logger.debug("Error in dialog box :: ", err);
           }
 
           if (response === "timeout") {
-            console.log("Dialog timeout exceeded. Opening the browser");
             this.logger.oauth("Dialog timeout exceeded. Opening the browser");
             this.performBrowserOpen(url);
             this.logger.oauth("Spawning browser.");
@@ -100,14 +98,12 @@ export class OAuthDialogManager {
             response === "close" ||
             (metadata && metadata.activationValue === "Close")
           ) {
-            console.log("OAuth Rejected. Terminating the server");
             this.logger.oauth("OAuth Rejected. Terminating the server");
             process.exit(0);
           }
 
           if (response === "copy url") {
             this.copyUrlToClipboard(url);
-            console.log("OAuth URL copied to clipboard.");
             this.logger.oauth("OAuth URL copied to clipboard.");
             return;
           }
@@ -127,14 +123,17 @@ export class OAuthDialogManager {
     }
 
     // Wait for 7 seconds, then if no response, close notifier and open browser
-    setTimeout(() => {
-      if (!this.responded) {
-        this.logger.info(
-          "No response from user after 7 seconds. Opening browser automatically."
-        );
-        this.performBrowserOpen(url);
-      }
-    }, this.error ? 0 : 7 * 1000);
+    setTimeout(
+      () => {
+        if (!this.responded) {
+          this.logger.info(
+            "No response from user after 7 seconds. Opening browser automatically."
+          );
+          this.performBrowserOpen(url);
+        }
+      },
+      this.error ? 0 : 7 * 1000
+    );
   }
 
   private async executeAppleScript(
@@ -167,7 +166,6 @@ export class OAuthDialogManager {
 
           this.responded = true;
           const choice = stdout.trim();
-          console.log(choice);
           this.logger.debug(`Dialog choice: "${choice}"`);
 
           if (choice.toLowerCase().includes("open browser")) {

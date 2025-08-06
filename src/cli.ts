@@ -93,14 +93,14 @@ async function main(): Promise<void> {
   const hasUrl = args.includes("--inline-config");
   const hasConfig = args.includes("--config");
   if (!hasUrl && !hasConfig) {
-    console.error(
+    logger.error(
       "❌ You must pass either --inline-config or --config to start the MCP server."
     );
     process.exit(1);
   }
 
   if (hasUrl && hasConfig) {
-    console.error(
+    logger.error(
       "❌ Please pass only one of --inline-config or --config, not both."
     );
     process.exit(1);
@@ -121,7 +121,7 @@ async function main(): Promise<void> {
   }
 
   try {
-    console.info("🚀 Starting MCP Connector...\n");
+    logger.info("🚀 Starting MCP Connector...\n");
 
     // Parse server URLs from arguments
     const argStartIndex = hasUrl
@@ -152,8 +152,6 @@ async function main(): Promise<void> {
       })
     );
   } catch (error) {
-    console.log(error);
-
     logger.error("💥 Fatal error:", error);
     process.exit(1);
   }
@@ -161,13 +159,13 @@ async function main(): Promise<void> {
 
 process.on("SIGINT", () => {
   cleanupOnExit();
-  console.log("👋 Goodbye!");
+  logger.info("👋 Goodbye!");
   process.exit(0);
 });
 
 process.on("SIGTERM", () => {
   cleanupOnExit();
-  console.log("👋 Goodbye!");
+  logger.info("👋 Goodbye!");
   process.exit(0);
 });
 

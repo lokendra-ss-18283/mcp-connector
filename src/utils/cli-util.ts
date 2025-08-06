@@ -141,7 +141,7 @@ export const parseServerUrls = (args: string[], logger: FileLogger) => {
       name = name.replace(/ +/g, "-");
 
       if (!name) {
-        console.error(
+        logger.error(
           "❌ Invalid server name. Please provide a name containing only alphanumeric characters, hyphens, underscores, or spaces."
         );
         process.exit(1);
@@ -150,7 +150,7 @@ export const parseServerUrls = (args: string[], logger: FileLogger) => {
       try {
         new URL(url);
       } catch {
-        console.error(
+        logger.error(
           `❌ Invalid URL provided for inline config: "${url}". Please provide a valid http(s) URL.`
         );
         process.exit(1);
@@ -179,7 +179,7 @@ export const parseServerUrls = (args: string[], logger: FileLogger) => {
   const isFile = args.includes("--config");
 
   if (!foundInlineConfig && !isFile && urlArgs.length > 1) {
-    console.error(
+    logger.error(
       "❌ Only a single URL is allowed as a CLI argument. For multiple servers, use a config file."
     );
     process.exit(1);
@@ -199,7 +199,7 @@ export const parseServerUrls = (args: string[], logger: FileLogger) => {
       args[args.indexOf("--server-name") + 1]
     )
   ) {
-    console.error(
+    logger.error(
       "❌ The --config option requires a valid path to a JSON configuration file and a server name. Please specify both after --config and --server-name."
     );
     process.exit(1);
@@ -208,7 +208,7 @@ export const parseServerUrls = (args: string[], logger: FileLogger) => {
   const getFile = args[args.indexOf("--config") + 1];
   const serverName = args[args.indexOf("--server-name") + 1];
   if (!serverName.trim()) {
-    console.error(
+    logger.error(
       "❌ Please provide a valid server name after --server-name when using --config."
     );
     process.exit(1);
@@ -224,7 +224,7 @@ export const parseServerUrls = (args: string[], logger: FileLogger) => {
         serverName.trim()
       );
       if (!isServerPresentInConfig) {
-        console.error(
+        logger.error(
           `❌ No server configuration found for the server name "${serverName}" in the config file. Please check your --server-name argument and the contents of your config file.`
         );
         process.exit(1);
@@ -244,15 +244,12 @@ export const parseServerUrls = (args: string[], logger: FileLogger) => {
           serverConfig
         );
       } else {
-        console.error(
+        logger.error(
           `❌ Invalid server configuration for "${serverName}" in the config file. Please ensure the server entry is correctly formatted and contains only valid keys (name, url, port).`
         );
         process.exit(1);
       }
     } catch (error: unknown) {
-      console.log(
-        "❌ Invalid configuration file. Please verify the file format and try again."
-      );
       logger.info(
         "❌ Invalid configuration file. Please verify the file format and try again."
       );
@@ -262,7 +259,6 @@ export const parseServerUrls = (args: string[], logger: FileLogger) => {
   }
 };
 
- 
 function isValidMCPServerConfig(
   value: MCPServerConfig,
   logger: FileLogger

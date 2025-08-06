@@ -259,9 +259,6 @@ export class McpProxy {
             this.logger.error(
               "[Client → Server] Received a 401 from the server because the cli headers contain a static Authorization header. Skipping the OAuth mechanism and closing the connection."
             );
-            console.error(
-              "[Client → Server] Received a 401 from the server because the cli headers contain a static Authorization header. Skipping the OAuth mechanism and closing the connection."
-            );
             process.exit(1);
           }
 
