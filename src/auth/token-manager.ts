@@ -21,6 +21,7 @@ export class TokenManager {
   private mcpConnectRootPath: string;
   private logger: FileLogger;
   private url: string | null = null;
+  private tokenCache: Record<string, TokenSchema | null> = {};
 
   constructor(logger: FileLogger, url?: string) {
     this.mcpConnectRootPath = join(homedir(), ".mcp-connector");
@@ -133,7 +134,9 @@ export class TokenManager {
         JSON.stringify(tokenDetails, null, 2),
         "utf8"
       );
-      this.addUrlInHashMapFile(TokenManager.hashUrl(url), url);
+      const hashUrl = TokenManager.hashUrl(url);
+      this.addUrlInHashMapFile(hashUrl, url);
+      this.tokenCache[hashUrl] = tokenDetails;
       this.logger.debug(`Saved auth token for ${url}`);
     } catch (error) {
       this.logger.warn(`Failed to save auth token for ${url}:`, error);
@@ -141,6 +144,10 @@ export class TokenManager {
   }
 
   public getToken(url: string): TokenSchema | null {
+    const hashUrl = TokenManager.hashUrl(url);
+    if (this.tokenCache[hashUrl]) {
+      return this.tokenCache[hashUrl];
+    }
     try {
       const tokenFilePath = this.getTokenFilePath();
       if (tokenFilePath == null) {
@@ -148,13 +155,14 @@ export class TokenManager {
         return null;
       }
       if (!existsSync(tokenFilePath)) {
-        this.removeUrlInHashMapFile(TokenManager.hashUrl(url));
+        this.removeUrlInHashMapFile(hashUrl);
         return null;
       }
 
       const tokenData: TokenSchema = JSON.parse(
         readFileSync(tokenFilePath, "utf8")
       );
+      this.tokenCache[hashUrl] = tokenData;
       return tokenData;
     } catch (error) {
       this.logger.warn(`Failed to load auth token for ${url}:`, error);
@@ -217,6 +225,7 @@ export class TokenManager {
 
   public removeToken(url: string): boolean {
     try {
+      const hashUrl = TokenManager.hashUrl(url);
       const tokenFilePath = this.getTokenFilePath();
       if (tokenFilePath == null) {
         this.logger.info(`URL is null couldn't save token.`);
@@ -224,7 +233,8 @@ export class TokenManager {
       }
       if (existsSync(tokenFilePath)) {
         unlinkSync(tokenFilePath);
-        this.removeUrlInHashMapFile(TokenManager.hashUrl(url));
+        this.removeUrlInHashMapFile(hashUrl);
+        delete this.tokenCache[hashUrl];
         this.logger.debug(`Removed token for ${url}`);
         return true;
       }

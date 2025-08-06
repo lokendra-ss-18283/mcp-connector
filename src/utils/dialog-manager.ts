@@ -15,6 +15,7 @@ import {
 export class OAuthDialogManager {
   private logger: FileLogger = DefaultLogger;
   private responded: boolean = false;
+  private error: boolean = false;
 
   constructor(url: string) {
     const { servers } = ROOT_CONFIG;
@@ -116,7 +117,7 @@ export class OAuthDialogManager {
         }
       );
     } catch (error) {
-      this.responded = true;
+      this.error = true;
       this.logger.info("Error in notifier. Will be opening browser direclty.");
       this.logger.debug(
         "Error in notifier. Will be opening browser direclty. Error :: ",
@@ -125,7 +126,7 @@ export class OAuthDialogManager {
       this.performBrowserOpen(url);
     }
 
-    // Wait for 5 seconds, then if no response, close notifier and open browser
+    // Wait for 7 seconds, then if no response, close notifier and open browser
     setTimeout(() => {
       if (!this.responded) {
         this.logger.info(
@@ -133,7 +134,7 @@ export class OAuthDialogManager {
         );
         this.performBrowserOpen(url);
       }
-    }, 7 * 1000);
+    }, this.error ? 0 : 7 * 1000);
   }
 
   private async executeAppleScript(

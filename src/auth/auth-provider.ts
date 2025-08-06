@@ -203,20 +203,6 @@ export class DefaultAuthProvider implements OAuthClientProvider {
     ) {
       const { createdAt, ...tokenWithoutCreatedAt } =
         storedTokenData as TokenSchema;
-
-      const proxyInstance: McpProxy | undefined =
-        AUTH_CONSTANTS.proxyInstances.get(
-          TokenManager.hashUrl(this.baseUrl.toString())
-        );
-      this.logger.debug(
-        "CURRENT_PROXY :: ",
-        proxyInstance ? "Proxy Present " : "NULL"
-      );
-      if (proxyInstance && storedTokenData && storedTokenData.refresh_token) {
-        const isInvalidToken: boolean = proxyInstance.refreshRetry > 0;
-        proxyInstance.validateRefTokenUnauth(this.tokenManager);
-        if (isInvalidToken) return undefined;
-      }
       return tokenWithoutCreatedAt as OAuthTokens;
     }
     return undefined;
@@ -224,7 +210,30 @@ export class DefaultAuthProvider implements OAuthClientProvider {
 
   saveTokens(tokens: OAuthTokens): void {
     this.logger.debug("Saving tokens", tokens);
-    this.tokenManager.saveToken(this.baseUrl.toString(), tokens);
+
+    const storedTokenData: TokenSchema | null = this.tokenManager.getToken(
+      this.baseUrl.toString()
+    );
+    if (
+      storedTokenData &&
+      storedTokenData.refresh_token &&
+      tokens.refresh_token &&
+      storedTokenData.refresh_token === tokens.refresh_token
+    ) {
+      const proxyInstance: McpProxy | undefined =
+        AUTH_CONSTANTS.proxyInstances.get(
+          TokenManager.hashUrl(this.baseUrl.toString())
+        );
+      proxyInstance?.validateRefTokenUnauth(
+        this.tokenManager,
+        this.baseUrl.toString()
+      );
+      if (proxyInstance?.refreshRetry === 0) {
+        this.tokenManager.saveToken(this.baseUrl.toString(), tokens);
+      }
+    } else {
+      this.tokenManager.saveToken(this.baseUrl.toString(), tokens);
+    }
     this.logger.debug("Tokens saved to TokenManager");
   }
 

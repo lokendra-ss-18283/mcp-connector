@@ -281,14 +281,14 @@ export class McpProxy {
       });
   }
 
-  public validateRefTokenUnauth(tokenManager: TokenManager): void {
+  public validateRefTokenUnauth(tokenManager: TokenManager, url: string): void {
     if (this.refreshRetry > 0) {
       // If refresh token present in already saved token, it'll go on for infinite recursion in MCP package. Hence we will remove the token file to restart auth.
       // Like bro who tf designs an open source project like this.
       this.logger.oauth(
         "[Client → Server] UnAuthorized error :: New access token generated using refresh token throwing 401. Hence we will be removing token file and reauthorizing the server."
       );
-      tokenManager.removeToken(this.url);
+      tokenManager.removeToken(url);
       this.refreshRetry = 0;
     }
     this.refreshRetry++;
