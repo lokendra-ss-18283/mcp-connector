@@ -81,35 +81,37 @@ export class OAuthDialogManager {
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (err: any, response: string, metadata: any) => {
-          this.responded = true;
-          if (err) {
-            this.logger.oauth("Error in dialog box");
-            this.logger.debug("Error in dialog box :: ", err);
-          }
-
-          if (response === "timeout") {
-            this.logger.oauth("Dialog timeout exceeded. Opening the browser");
+          if(!this.responded) {
+            this.responded = true;
+            if (err) {
+              this.logger.oauth("Error in dialog box");
+              this.logger.debug("Error in dialog box :: ", err);
+            }
+  
+            if (response === "timeout") {
+              this.logger.oauth("Dialog timeout exceeded. Opening the browser");
+              this.performBrowserOpen(url);
+              this.logger.oauth("Spawning browser.");
+              return;
+            }
+  
+            if (
+              response === "close" ||
+              (metadata && metadata.activationValue === "Close")
+            ) {
+              this.logger.oauth("OAuth Rejected. Terminating the server");
+              process.exit(0);
+            }
+  
+            if (response === "copy url") {
+              this.copyUrlToClipboard(url);
+              this.logger.oauth("OAuth URL copied to clipboard.");
+              return;
+            }
+  
             this.performBrowserOpen(url);
             this.logger.oauth("Spawning browser.");
-            return;
           }
-
-          if (
-            response === "close" ||
-            (metadata && metadata.activationValue === "Close")
-          ) {
-            this.logger.oauth("OAuth Rejected. Terminating the server");
-            process.exit(0);
-          }
-
-          if (response === "copy url") {
-            this.copyUrlToClipboard(url);
-            this.logger.oauth("OAuth URL copied to clipboard.");
-            return;
-          }
-
-          this.performBrowserOpen(url);
-          this.logger.oauth("Spawning browser.");
         }
       );
     } catch (error) {
@@ -125,11 +127,13 @@ export class OAuthDialogManager {
     // Wait for 7 seconds, then if no response, close notifier and open browser
     setTimeout(
       () => {
-        if (!this.responded) {
+        if (!this.responded && !this.error) {
           this.logger.info(
             "No response from user after 7 seconds. Opening browser automatically."
           );
           this.performBrowserOpen(url);
+          this.responded = true;
+          this.error = true;
         }
       },
       this.error ? 0 : 7 * 1000
